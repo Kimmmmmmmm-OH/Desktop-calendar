@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>桌面日历清单</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <!-- Close Dialog -->
+  <div id="close-dialog" class="hidden">
+    <div id="close-dialog-backdrop"></div>
+    <div id="close-dialog-box">
+      <div class="close-dialog-title">退出桌面日历清单</div>
+      <div class="close-dialog-actions">
+        <button id="close-dialog-hide" class="dialog-btn">隐藏到托盘</button>
+        <button id="close-dialog-quit" class="dialog-btn dialog-btn-danger">关闭软件</button>
+        <button id="close-dialog-cancel" class="dialog-btn dialog-btn-cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide-out Panel Overlay -->
+  <div id="panel-overlay" class="hidden"></div>
+
+  <!-- Settings Panel (slide from left) -->
+  <div id="settings-panel" class="slide-panel slide-left hidden">
+    <div class="slide-panel-header">
+      <span>设置</span>
+      <button class="slide-panel-close" id="btn-settings-close">✕</button>
+    </div>
+    <!-- Transparency -->
+    <div class="settings-group">
+      <label>透明度</label>
+      <input type="range" id="transparency-slider" min="30" max="100" value="92">
+      <span class="slider-value" id="transparency-value">92%</span>
+    </div>
+
+    <!-- Background HSL -->
+    <div class="settings-section-title">背景颜色</div>
+    <div class="settings-group hsl-group">
+      <label>色相</label>
+      <input type="range" id="bg-hue-slider" min="0" max="360" value="240" class="hue-slider">
+      <span class="slider-value" id="bg-hue-value">240°</span>
+    </div>
+    <div class="settings-group hsl-group">
+      <label>饱和度</label>
+      <input type="range" id="bg-sat-slider" min="0" max="100" value="15">
+      <span class="slider-value" id="bg-sat-value">15%</span>
+    </div>
+    <div class="settings-group hsl-group">
+      <label>亮度</label>
+      <input type="range" id="bg-light-slider" min="0" max="100" value="12">
+      <span class="slider-value" id="bg-light-value">12%</span>
+    </div>
+
+    <!-- Font/Accent HSL -->
+    <div class="settings-section-title">字体 / 强调色</div>
+    <div class="settings-group hsl-group">
+      <label>色相</label>
+      <input type="range" id="fg-hue-slider" min="0" max="360" value="40" class="hue-slider">
+      <span class="slider-value" id="fg-hue-value">40°</span>
+    </div>
+    <div class="settings-group hsl-group">
+      <label>饱和度</label>
+      <input type="range" id="fg-sat-slider" min="0" max="100" value="40">
+      <span class="slider-value" id="fg-sat-value">40%</span>
+    </div>
+    <div class="settings-group hsl-group">
+      <label>亮度</label>
+      <input type="range" id="fg-light-slider" min="0" max="100" value="62">
+      <span class="slider-value" id="fg-light-value">62%</span>
+    </div>
+
+    <!-- Font Size -->
+    <div class="settings-section-title">字体大小</div>
+    <div class="settings-group">
+      <label>月份标题</label>
+      <input type="range" id="month-font-slider" min="8" max="60" value="17">
+      <span class="slider-value" id="month-font-value">17px</span>
+    </div>
+    <div class="settings-group">
+      <label>日历日期</label>
+      <input type="range" id="date-font-slider" min="6" max="52" value="14">
+      <span class="slider-value" id="date-font-value">14px</span>
+    </div>
+    <div class="settings-group">
+      <label>星期栏</label>
+      <input type="range" id="weekday-font-slider" min="6" max="36" value="10">
+      <span class="slider-value" id="weekday-font-value">10px</span>
+    </div>
+    <div class="settings-group">
+      <label>框内待办</label>
+      <input type="range" id="cell-todo-font-slider" min="5" max="30" value="7">
+      <span class="slider-value" id="cell-todo-font-value">7px</span>
+    </div>
+    <div class="settings-group color-group">
+      <label>待办颜色</label>
+      <input type="color" id="cell-todo-color" value="#9a98a0">
+    </div>
+    <div class="settings-group toggle-group">
+      <label>待办加粗</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-cell-todo-bold">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <!-- Toggles -->
+    <div class="settings-section-title">功能开关</div>
+    <div class="settings-group toggle-group">
+      <label>窗口置顶</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-ontop" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="settings-group toggle-group">
+      <label>开机自启</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-autostart">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="settings-group toggle-group">
+      <label>隐藏标题栏</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-titlebar">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+
+    <!-- Preset buttons -->
+    <div class="preset-row">
+      <button class="preset-btn" data-preset="gold">暗金</button>
+      <button class="preset-btn" data-preset="blue">深蓝</button>
+      <button class="preset-btn" data-preset="purple">暗紫</button>
+      <button class="preset-btn" data-preset="green">墨绿</button>
+      <button class="preset-btn" data-preset="light">简约白</button>
+      <button class="preset-btn preset-reset" data-preset="default">默认</button>
+    </div>
+    <div class="settings-save-row">
+      <button id="btn-save-settings" class="save-settings-btn">保存设置</button>
+      <span id="save-settings-feedback" class="save-feedback hidden">已保存</span>
+    </div>
+  </div>
+
+  <!-- Memo Panel (slide from right) -->
+  <div id="memo-panel" class="slide-panel slide-right hidden">
+    <div class="slide-panel-header">
+      <span>备忘录</span>
+      <button class="slide-panel-close" id="btn-memo-close">✕</button>
+    </div>
+    <div class="memo-body">
+      <textarea id="memo-textarea" placeholder="输入备忘录内容..."></textarea>
+      <div class="settings-group memo-font-group">
+        <label>字体大小</label>
+        <input type="range" id="memo-font-slider" min="8" max="48" value="14">
+        <span class="slider-value" id="memo-font-value">14px</span>
+      </div>
+      <div class="settings-group memo-color-group">
+        <label>文字颜色</label>
+        <input type="color" id="memo-text-color" value="#e8e6e3">
+      </div>
+    </div>
+  </div>
+
+  <!-- Title Bar -->
+  <div id="title-bar">
+    <div class="title-text">桌面日历清单</div>
+    <div class="title-actions">
+      <button class="title-btn" id="btn-memo" title="备忘录">✎</button>
+      <button class="title-btn" id="btn-pin" title="固定到桌面">⬇</button>
+      <button class="title-btn" id="btn-toggle-todo" title="显示/隐藏待办栏">☰</button>
+      <button class="title-btn" id="btn-maximize" title="最大化/还原">☐</button>
+      <button class="title-btn" id="btn-minimize" title="最小化到托盘">─</button>
+      <button class="title-btn" id="btn-close" title="关闭">✕</button>
+    </div>
+  </div>
+
+  <!-- Calendar Header (nav buttons removed→floating) -->
+  <div id="calendar-header">
+    <div class="month-year">
+      <span id="current-month-year"></span>
+      <button id="btn-today" class="today-btn">回到今日</button>
+    </div>
+  </div>
+
+  <!-- Floating nav buttons (vertically centered on window) -->
+  <button id="btn-prev-month" class="nav-btn nav-floating">◀</button>
+  <button id="btn-next-month" class="nav-btn nav-floating">▶</button>
+
+  <!-- Day-of-week Headers -->
+  <div id="weekday-header">
+    <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+  </div>
+
+  <!-- Calendar Grid -->
+  <div id="calendar-grid"></div>
+
+  <!-- Selected Date Todo Management Section -->
+  <div id="todo-section">
+    <div class="todo-header">
+      <span id="selected-date-label">选择日期查看待办</span>
+      <div class="todo-header-actions">
+        <span id="todo-count" class="todo-count"></span>
+        <button id="btn-clear-completed" class="clear-btn hidden" title="清除已完成">清除已完成</button>
+        <button id="btn-add-todo" class="add-btn" title="添加待办">+</button>
+      </div>
+    </div>
+    <div id="todo-body">
+      <div id="todo-list"></div>
+      <div id="todo-input-row" class="hidden">
+        <input type="text" id="todo-input" placeholder="输入待办事项...">
+        <button id="btn-save-todo" class="save-btn">✓</button>
+        <button id="btn-cancel-todo" class="cancel-btn">✕</button>
+      </div>
+      <div id="todo-edit-row" class="hidden">
+        <input type="text" id="todo-edit-input">
+        <button id="btn-save-edit" class="save-btn">✓</button>
+        <button id="btn-cancel-edit" class="cancel-btn">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Floating settings gear (always visible, highest stacking order in #app) -->
+  <button class="title-btn" id="settings-float-btn" title="设置">⚙</button>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
