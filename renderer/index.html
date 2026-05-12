@@ -168,7 +168,7 @@
 
   <!-- Title Bar -->
   <div id="title-bar">
-    <div class="title-text">桌面日历清单</div>
+    <div class="title-text">Desktop Calendar</div>
     <div class="title-actions">
       <button class="title-btn" id="btn-memo" title="备忘录">✎</button>
       <button class="title-btn" id="btn-pin" title="固定到桌面">⬇</button>
@@ -224,8 +224,42 @@
     </div>
   </div>
 
-  <!-- Floating settings gear (always visible, highest stacking order in #app) -->
-  <button class="title-btn" id="settings-float-btn" title="设置">⚙</button>
+  <!-- Floating action buttons (top-left corner, always visible) -->
+  <button class="float-btn" id="mini-mode-btn" title="迷你模式">⊟</button>
+  <button class="float-btn" id="settings-float-btn" title="设置">⚙</button>
+
+  <!-- Mini Mode View -->
+  <div id="mini-view" class="hidden">
+    <div id="mini-calendar-icon">
+      <span id="mini-month">5月</span>
+      <span id="mini-day">12</span>
+      <span id="mini-weekday">一</span>
+    </div>
+  </div>
+
+  <!-- Todo Detail View (full-page for a single date) -->
+  <div id="detail-view" class="hidden">
+    <div id="detail-header">
+      <button id="btn-detail-back" class="detail-back-btn">返回</button>
+      <div id="detail-header-info">
+        <span id="detail-date-label"></span>
+        <span id="detail-lunar-label"></span>
+      </div>
+      <span id="detail-todo-count"></span>
+    </div>
+    <div id="detail-todo-body">
+      <div id="detail-todo-list"></div>
+      <div id="detail-todo-add-row" class="detail-add-row">
+        <input type="text" id="detail-todo-input" placeholder="输入待办事项...">
+        <button id="btn-detail-save" class="save-btn">✓</button>
+      </div>
+      <div id="detail-todo-edit-row" class="detail-edit-row hidden">
+        <input type="text" id="detail-todo-edit-input">
+        <button id="btn-detail-save-edit" class="save-btn">✓</button>
+        <button id="btn-detail-cancel-edit" class="cancel-btn">✕</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="app.js"></script>

@@ -57,7 +57,7 @@ function setAutoStart(enable) {
     const exePath = process.execPath;
     const shortcutPath = startupPath;
     const args = process.argv.length > 1 && !process.execPath.endsWith('桌面日历清单.exe')
-      ? `"${process.argv[1]}"` : '';
+      ? process.argv[1] : '';
     const vbs = `
 Set ws = WScript.CreateObject("WScript.Shell")
 Set shortcut = ws.CreateShortcut("${shortcutPath.replace(/\\/g, '\\\\')}")
@@ -95,9 +95,9 @@ function createWindow() {
     y: winY,
     frame: false,
     transparent: true,
-    backgroundColor: '#111118',
+    backgroundColor: '#1a1a23',
     alwaysOnTop: settings.alwaysOnTop,
-    skipTaskbar: false,
+    skipTaskbar: true,
     resizable: true,
     icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
@@ -264,16 +264,28 @@ ipcMain.handle('toggle-fullscreen', () => {
   return false;
 });
 
+let preMaximizeBounds = null;
+
 ipcMain.handle('toggle-maximize', () => {
-  if (mainWindow) {
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize();
-    } else {
-      mainWindow.maximize();
-    }
-    return mainWindow.isMaximized();
+  if (!mainWindow) return false;
+
+  if (preMaximizeBounds) {
+    // Restore previous bounds
+    suppressBoundsSave = true;
+    mainWindow.setBounds(preMaximizeBounds);
+    suppressBoundsSave = false;
+    preMaximizeBounds = null;
+    return false;
+  } else {
+    // Save current bounds and maximize to the display the window is on
+    preMaximizeBounds = mainWindow.getBounds();
+    const currentDisplay = screen.getDisplayMatching(preMaximizeBounds);
+    const { x, y, width, height } = currentDisplay.workArea;
+    suppressBoundsSave = true;
+    mainWindow.setBounds({ x, y, width, height });
+    suppressBoundsSave = false;
+    return true;
   }
-  return false;
 });
 
 ipcMain.handle('toggle-pin', () => {
@@ -335,6 +347,34 @@ ipcMain.handle('panel-state-changed', (_, state) => {
 });
 
 ipcMain.handle('get-pin-state', () => isPinned);
+
+let preMiniBounds = null; // saved window bounds before entering mini mode
+
+ipcMain.handle('toggle-mini-mode', () => {
+  if (!mainWindow) return false;
+
+  if (preMiniBounds) {
+    // Exit mini mode — restore previous bounds
+    suppressBoundsSave = true;
+    mainWindow.setBounds(preMiniBounds);
+    mainWindow.setResizable(true);
+    mainWindow.setMovable(true);
+    suppressBoundsSave = false;
+    preMiniBounds = null;
+    return false;
+  } else {
+    // Enter mini mode — save current bounds, shrink to mini size
+    preMiniBounds = mainWindow.getBounds();
+    const miniSize = 80;
+    const newX = preMiniBounds.x + Math.round((preMiniBounds.width - miniSize) / 2);
+    const newY = preMiniBounds.y + Math.round((preMiniBounds.height - miniSize) / 2);
+    suppressBoundsSave = true;
+    mainWindow.setResizable(false);
+    mainWindow.setBounds({ x: newX, y: newY, width: miniSize, height: miniSize });
+    suppressBoundsSave = false;
+    return true;
+  }
+});
 
 ipcMain.handle('quit-app', () => {
   isQuitting = true;

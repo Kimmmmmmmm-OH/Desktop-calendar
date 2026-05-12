@@ -271,8 +271,17 @@ function applyTitlebarHide(hidden) {
     zone.classList.add('active');
     if (!zone.dataset.listeners) {
       zone.dataset.listeners = '1';
-      zone.addEventListener('mouseenter', () => bar.classList.add('show'));
-      zone.addEventListener('mouseleave', () => bar.classList.remove('show'));
+      let hideTimer = null;
+      zone.addEventListener('mouseenter', () => {
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        bar.classList.add('show');
+      });
+      zone.addEventListener('mouseleave', () => {
+        hideTimer = setTimeout(() => {
+          bar.classList.remove('show');
+          hideTimer = null;
+        }, 3000);
+      });
     }
   } else {
     bar.classList.remove('auto-hide', 'show');
@@ -327,9 +336,11 @@ function renderCalendar() {
   const today = getToday();
   const todayBtn = document.getElementById('btn-today');
   if (currentYear === today.year && currentMonth === today.month) {
-    todayBtn.style.display = 'none';
+    todayBtn.style.opacity = '0';
+    todayBtn.style.visibility = 'hidden';
   } else {
-    todayBtn.style.display = '';
+    todayBtn.style.opacity = '';
+    todayBtn.style.visibility = '';
   }
 
   const firstDay = new Date(currentYear, currentMonth - 1, 1).getDay(); // 0=Sun
@@ -398,9 +409,11 @@ function renderCalendar() {
       if (lunarHoliday) {
         holidayText = lunarHoliday;
         lunarDateDisplay.classList.add('holiday');
+        cell.classList.add('holiday-cell');
       } else if (solarHoliday) {
         holidayText = solarHoliday;
         lunarDateDisplay.classList.add('holiday');
+        cell.classList.add('holiday-cell');
       }
 
       lunarDateDisplay.textContent = holidayText || getLunarDateDisplay(cellLunar);
@@ -429,6 +442,10 @@ function renderCalendar() {
           const more = document.createElement('span');
           more.classList.add('cell-more');
           more.textContent = `+${dayTodos.length - maxShow} 更多`;
+          more.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            openDetailView(currentYear, currentMonth, solarDay);
+          });
           todosWrap.appendChild(more);
         }
         cell.appendChild(todosWrap);
@@ -457,9 +474,7 @@ function navigateMonth(delta) {
 }
 
 function selectDate(y, m, d) {
-  selectedDate = { year: y, month: m, day: d };
-  renderCalendar();
-  renderTodoList();
+  openDetailView(y, m, d);
 }
 
 /* ================================================================
@@ -891,6 +906,260 @@ function togglePanel(id) {
    EVENT HANDLERS & INITIALIZATION
    ================================================================ */
 
+/* --- Mini Mode --- */
+
+let isMiniMode = false;
+
+async function toggleMiniMode() {
+  if (window.electronAPI && window.electronAPI.toggleMiniMode) {
+    const app = document.getElementById('app');
+    const btn = document.getElementById('mini-mode-btn');
+
+    // Immediately hide all panels without animation
+    ['settings-panel', 'memo-panel'].forEach(id => {
+      const p = document.getElementById(id);
+      p.classList.remove('open');
+      p.classList.add('hidden');
+    });
+    const overlay = document.getElementById('panel-overlay');
+    overlay.classList.remove('active');
+    overlay.classList.add('hidden');
+
+    // Close detail view immediately
+    const dv = document.getElementById('detail-view');
+    if (!dv.classList.contains('hidden')) {
+      dv.classList.add('hidden');
+      dv.classList.remove('detail-exit');
+    }
+
+    // Restore window bounds before entering mini mode
+    if (window.electronAPI.panelStateChanged) {
+      await window.electronAPI.panelStateChanged({
+        leftOpen: false, rightOpen: false, leftWidth: 280, rightWidth: 260
+      });
+    }
+    // Small delay to let main process finish bounds restore
+    await new Promise(r => setTimeout(r, 50));
+
+    const inMini = await window.electronAPI.toggleMiniMode();
+
+    if (inMini) {
+      app.classList.add('mini-mode');
+      btn.classList.add('active');
+      updateMiniView();
+    } else {
+      app.classList.remove('mini-mode');
+      btn.classList.remove('active');
+      // Restore calendar view in case detail view was open before mini mode
+      document.getElementById('calendar-header').style.display = '';
+      document.getElementById('weekday-header').style.display = '';
+      document.getElementById('calendar-grid').style.display = '';
+      document.getElementById('todo-section').style.display = '';
+      document.getElementById('btn-prev-month').style.display = '';
+      document.getElementById('btn-next-month').style.display = '';
+      document.getElementById('mini-mode-btn').style.display = '';
+      document.getElementById('settings-float-btn').style.display = '';
+      renderCalendar();
+      renderTodoList();
+    }
+    isMiniMode = inMini;
+  }
+}
+
+function updateMiniView() {
+  const today = getToday();
+  const weekdays = ['日','一','二','三','四','五','六'];
+  const d = new Date(today.year, today.month - 1, today.day);
+  document.getElementById('mini-month').textContent = today.month + '月';
+  document.getElementById('mini-day').textContent = today.day;
+  document.getElementById('mini-weekday').textContent = '周' + weekdays[d.getDay()];
+}
+
+/* --- Detail View --- */
+
+let detailKey = null;
+
+function openDetailView(y, m, d) {
+  selectedDate = { year: y, month: m, day: d };
+  detailKey = dateKey(y, m, d);
+  closeAllPanels();
+  renderCalendar();
+  document.getElementById('detail-view').classList.remove('hidden');
+  // Hide calendar navigation and todo section
+  document.getElementById('calendar-header').style.display = 'none';
+  document.getElementById('weekday-header').style.display = 'none';
+  document.getElementById('calendar-grid').style.display = 'none';
+  document.getElementById('todo-section').style.display = 'none';
+  document.getElementById('btn-prev-month').style.display = 'none';
+  document.getElementById('btn-next-month').style.display = 'none';
+  // Hide floating buttons in detail view
+  document.getElementById('mini-mode-btn').style.display = 'none';
+  document.getElementById('settings-float-btn').style.display = 'none';
+  renderDetailTodos();
+}
+
+function closeDetailView() {
+  const dv = document.getElementById('detail-view');
+  dv.classList.add('detail-exit');
+  setTimeout(() => {
+    dv.classList.add('hidden');
+    dv.classList.remove('detail-exit');
+    document.getElementById('calendar-header').style.display = '';
+    document.getElementById('weekday-header').style.display = '';
+    document.getElementById('calendar-grid').style.display = '';
+    document.getElementById('todo-section').style.display = '';
+    document.getElementById('btn-prev-month').style.display = '';
+    document.getElementById('btn-next-month').style.display = '';
+    // Restore floating buttons
+    document.getElementById('mini-mode-btn').style.display = '';
+    document.getElementById('settings-float-btn').style.display = '';
+    renderCalendar();
+    renderTodoList();
+  }, 200);
+}
+
+function renderDetailTodos() {
+  const list = document.getElementById('detail-todo-list');
+  const dateLabel = document.getElementById('detail-date-label');
+  const lunarLabel = document.getElementById('detail-lunar-label');
+  const countEl = document.getElementById('detail-todo-count');
+  const editRow = document.getElementById('detail-todo-edit-row');
+
+  editRow.classList.add('hidden');
+
+  if (!selectedDate) { list.innerHTML = '<div class="detail-empty">请选择日期</div>'; return; }
+
+  const lunar = solarToLunar(selectedDate.year, selectedDate.month, selectedDate.day);
+  dateLabel.textContent = formatDateCN(selectedDate.year, selectedDate.month, selectedDate.day);
+  const holidayLabel = getLunarHoliday(lunar) || getSolarHoliday(selectedDate.month, selectedDate.day);
+  lunarLabel.textContent = holidayLabel || getLunarDateDisplay(lunar);
+  if (holidayLabel) lunarLabel.style.color = 'var(--accent-red)';
+  else lunarLabel.style.color = '';
+
+  const key = getSelectedDateKey();
+  const dayTodos = todos[key] || [];
+  const total = dayTodos.length;
+  const completed = dayTodos.filter(t => t.completed).length;
+  countEl.textContent = total > 0 ? `${total - completed} 待办 / ${completed} 已完成` : '';
+
+  if (dayTodos.length === 0) {
+    list.innerHTML = '<div class="detail-empty">暂无待办事项<br>在下方输入框中添加</div>';
+    return;
+  }
+
+  const sorted = [...dayTodos].sort((a, b) => {
+    if (a.completed !== b.completed) return a.completed ? 1 : -1;
+    return b.createdAt - a.createdAt;
+  });
+
+  list.innerHTML = '';
+  for (const todo of sorted) {
+    const item = document.createElement('div');
+    item.classList.add('todo-item');
+    item.dataset.todoId = String(todo.id);
+    if (todo.completed) item.classList.add('completed');
+
+    const checkbox = document.createElement('span');
+    checkbox.classList.add('todo-checkbox');
+    checkbox.addEventListener('click', () => {
+      toggleTodo(key, todo.id);
+      renderDetailTodos();
+      renderCalendar();
+    });
+
+    const text = document.createElement('span');
+    text.classList.add('todo-text');
+    text.textContent = todo.text;
+
+    item.addEventListener('dblclick', (e) => {
+      if (e.target === checkbox || e.target.classList.contains('todo-delete')) return;
+      startDetailEdit(key, todo.id);
+    });
+
+    const delBtn = document.createElement('button');
+    delBtn.classList.add('todo-delete');
+    delBtn.textContent = '✕';
+    delBtn.title = '删除';
+    delBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteTodo(key, todo.id);
+      renderDetailTodos();
+      renderCalendar();
+    });
+
+    item.appendChild(checkbox);
+    item.appendChild(text);
+    item.appendChild(delBtn);
+    list.appendChild(item);
+  }
+}
+
+/* --- Detail edit functions --- */
+
+function startDetailEdit(key, id) {
+  const todo = todos[key].find(t => t.id === id);
+  if (!todo) return;
+
+  const list = document.getElementById('detail-todo-list');
+  const editRow = document.getElementById('detail-todo-edit-row');
+  const editInput = document.getElementById('detail-todo-edit-input');
+
+  const items = list.querySelectorAll('.todo-item');
+  for (const item of items) {
+    if (item.dataset.todoId === String(id)) {
+      item.classList.add('editing');
+      break;
+    }
+  }
+
+  editInput.value = todo.text;
+  editInput.dataset.editKey = key;
+  editInput.dataset.editId = String(id);
+  editRow.classList.remove('hidden');
+  editInput.focus();
+  editInput.select();
+}
+
+function saveDetailEdit() {
+  const editInput = document.getElementById('detail-todo-edit-input');
+  const editRow = document.getElementById('detail-todo-edit-row');
+  const key = editInput.dataset.editKey;
+  const id = parseInt(editInput.dataset.editId);
+  const newText = editInput.value.trim();
+
+  editRow.classList.add('hidden');
+  delete editInput.dataset.editKey;
+  delete editInput.dataset.editId;
+
+  const list = document.getElementById('detail-todo-list');
+  const items = list.querySelectorAll('.todo-item');
+  for (const item of items) item.classList.remove('editing');
+
+  if (!newText || !todos[key]) return;
+  const todo = todos[key].find(t => t.id === id);
+  if (todo) {
+    todo.text = newText;
+    saveTodos();
+    renderDetailTodos();
+  }
+}
+
+function cancelDetailEdit() {
+  const editRow = document.getElementById('detail-todo-edit-row');
+  const editInput = document.getElementById('detail-todo-edit-input');
+  editRow.classList.add('hidden');
+  delete editInput.dataset.editKey;
+  delete editInput.dataset.editId;
+
+  const list = document.getElementById('detail-todo-list');
+  const items = list.querySelectorAll('.todo-item');
+  for (const item of items) items.classList.remove('editing');
+}
+
+/* ================================================================
+   EVENT HANDLERS & INITIALIZATION
+   ================================================================ */
+
 function init() {
   const today = getToday();
   currentYear = today.year;
@@ -902,7 +1171,9 @@ function init() {
     const t = getToday();
     currentYear = t.year;
     currentMonth = t.month;
-    selectDate(t.year, t.month, t.day);
+    selectedDate = { year: t.year, month: t.month, day: t.day };
+    renderCalendar();
+    renderTodoList();
   });
 
   document.getElementById('settings-float-btn').addEventListener('click', () => {
@@ -910,6 +1181,43 @@ function init() {
   });
   document.getElementById('btn-settings-close').addEventListener('click', () => {
     closePanel('settings-panel');
+  });
+
+  // Mini mode
+  document.getElementById('mini-mode-btn').addEventListener('click', toggleMiniMode);
+  // Mini view click vs drag detection (click event won't fire with -webkit-app-region:drag)
+  let miniMouseOrigin = null;
+  const miniView = document.getElementById('mini-view');
+  miniView.addEventListener('mousedown', (e) => { miniMouseOrigin = { x: e.screenX, y: e.screenY }; });
+  miniView.addEventListener('mouseup', (e) => {
+    if (miniMouseOrigin) {
+      const dx = e.screenX - miniMouseOrigin.x;
+      const dy = e.screenY - miniMouseOrigin.y;
+      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) toggleMiniMode();
+      miniMouseOrigin = null;
+    }
+  });
+
+  // Detail view
+  document.getElementById('btn-detail-back').addEventListener('click', closeDetailView);
+  document.getElementById('btn-detail-save').addEventListener('click', () => {
+    const input = document.getElementById('detail-todo-input');
+    const text = input.value.trim();
+    if (text) {
+      addTodo(text);
+      input.value = '';
+      renderDetailTodos();
+    }
+  });
+  document.getElementById('detail-todo-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('btn-detail-save').click();
+    else if (e.key === 'Escape') { document.getElementById('detail-todo-input').value = ''; }
+  });
+  document.getElementById('btn-detail-save-edit').addEventListener('click', saveDetailEdit);
+  document.getElementById('btn-detail-cancel-edit').addEventListener('click', cancelDetailEdit);
+  document.getElementById('detail-todo-edit-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('btn-detail-save-edit').click();
+    else if (e.key === 'Escape') document.getElementById('btn-detail-cancel-edit').click();
   });
 
   const oldSettingsBtn = document.getElementById('btn-settings');
@@ -1040,7 +1348,11 @@ function init() {
       await window.electronAPI.saveSettings(settings);
       const fb = document.getElementById('save-settings-feedback');
       fb.classList.remove('hidden');
-      setTimeout(() => fb.classList.add('hidden'), 1500);
+      fb.classList.add('flash-once');
+      setTimeout(() => {
+        fb.classList.add('hidden');
+        fb.classList.remove('flash-once');
+      }, 1000);
     }
   });
 
@@ -1066,7 +1378,33 @@ function init() {
   });
 
   document.getElementById('btn-maximize').addEventListener('click', async () => {
-    if (window.electronAPI) await window.electronAPI.toggleMaximize();
+    if (window.electronAPI) {
+      await window.electronAPI.toggleMaximize();
+      // After bounds change, force-hide any overlays that might block title bar buttons
+      setTimeout(() => {
+        const miniView = document.getElementById('mini-view');
+        if (!document.getElementById('app').classList.contains('mini-mode')) {
+          miniView.classList.add('hidden');
+        }
+        document.getElementById('detail-view').classList.add('hidden');
+        document.getElementById('panel-overlay').classList.add('hidden');
+        ['settings-panel', 'memo-panel'].forEach(id => {
+          document.getElementById(id).classList.add('hidden');
+          document.getElementById(id).classList.remove('open');
+        });
+        // Restore calendar view in case detail view had taken over
+        document.getElementById('calendar-header').style.display = '';
+        document.getElementById('weekday-header').style.display = '';
+        document.getElementById('calendar-grid').style.display = '';
+        document.getElementById('todo-section').style.display = '';
+        document.getElementById('btn-prev-month').style.display = '';
+        document.getElementById('btn-next-month').style.display = '';
+        document.getElementById('mini-mode-btn').style.display = '';
+        document.getElementById('settings-float-btn').style.display = '';
+        renderCalendar();
+        renderTodoList();
+      }, 100);
+    }
   });
 
   document.getElementById('btn-toggle-todo').addEventListener('click', async () => {
@@ -1153,7 +1491,9 @@ function init() {
   document.getElementById('btn-cancel-edit').addEventListener('click', cancelEditTodo);
 
   Promise.all([loadTodos(), loadSettings()]).then(() => {
-    selectDate(today.year, today.month, today.day);
+    selectedDate = { year: today.year, month: today.month, day: today.day };
+    renderCalendar();
+    renderTodoList();
   });
 }
 
