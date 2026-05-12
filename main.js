@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -18,6 +18,10 @@ function loadSettings() {
   } catch (e) { /* ignore */ }
   return {
     transparency: 0.92,
+    bgOpacity: 0.92,
+    textOpacity: 1.0,
+    fontFamily: 'Microsoft YaHei',
+    backgroundImage: '',
     alwaysOnTop: true,
     autoStart: false,
     width: 380,
@@ -107,7 +111,7 @@ function createWindow() {
     }
   });
 
-  mainWindow.setOpacity(settings.transparency);
+  mainWindow.setOpacity(settings.bgOpacity ?? settings.transparency ?? 0.92);
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   mainWindow.setTitle('桌面日历清单');
 
@@ -219,7 +223,9 @@ ipcMain.handle('save-settings', (_, newSettings) => {
   const merged = { ...current, ...newSettings };
   saveSettings(merged);
   if (mainWindow) {
-    if (newSettings.transparency !== undefined) {
+    if (newSettings.bgOpacity !== undefined) {
+      mainWindow.setOpacity(newSettings.bgOpacity);
+    } else if (newSettings.transparency !== undefined) {
       mainWindow.setOpacity(newSettings.transparency);
     }
     if (newSettings.alwaysOnTop !== undefined) {
@@ -227,6 +233,37 @@ ipcMain.handle('save-settings', (_, newSettings) => {
     }
   }
   return merged;
+});
+
+ipcMain.handle('open-file-dialog', async () => {
+  if (!mainWindow) return null;
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: '选择背景图片',
+    properties: ['openFile'],
+    filters: [
+      { name: '图片文件', extensions: ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'] }
+    ]
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  const filePath = result.filePaths[0];
+  try {
+    const img = nativeImage.createFromPath(filePath);
+    if (img.isEmpty()) return null;
+    const size = img.getSize();
+    const maxDim = 1920;
+    let resized = img;
+    if (size.width > maxDim || size.height > maxDim) {
+      const ratio = Math.min(maxDim / size.width, maxDim / size.height);
+      resized = img.resize({
+        width: Math.round(size.width * ratio),
+        height: Math.round(size.height * ratio)
+      });
+    }
+    const jpegBuffer = resized.toJPEG(85);
+    return `data:image/jpeg;base64,${jpegBuffer.toString('base64')}`;
+  } catch (e) {
+    return null;
+  }
 });
 
 ipcMain.handle('get-todos', () => {

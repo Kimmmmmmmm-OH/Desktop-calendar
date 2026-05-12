@@ -30,11 +30,17 @@
       <span>设置</span>
       <button class="slide-panel-close" id="btn-settings-close">✕</button>
     </div>
-    <!-- Transparency -->
+    <!-- Background & Text Opacity -->
+    <div class="settings-section-title">透明度</div>
     <div class="settings-group">
-      <label>透明度</label>
-      <input type="range" id="transparency-slider" min="30" max="100" value="92">
-      <span class="slider-value" id="transparency-value">92%</span>
+      <label>背景</label>
+      <input type="range" id="bg-opacity-slider" min="30" max="100" value="92">
+      <span class="slider-value" id="bg-opacity-value">92%</span>
+    </div>
+    <div class="settings-group">
+      <label>字体</label>
+      <input type="range" id="text-opacity-slider" min="30" max="100" value="100">
+      <span class="slider-value" id="text-opacity-value">100%</span>
     </div>
 
     <!-- Background HSL -->
@@ -71,6 +77,13 @@
       <label>亮度</label>
       <input type="range" id="fg-light-slider" min="0" max="100" value="62">
       <span class="slider-value" id="fg-light-value">62%</span>
+    </div>
+
+    <!-- Font Family -->
+    <div class="settings-section-title">字体样式</div>
+    <div class="settings-group">
+      <label>字体</label>
+      <select id="font-family-select" class="font-select"></select>
     </div>
 
     <!-- Font Size -->
@@ -129,6 +142,13 @@
         <input type="checkbox" id="toggle-titlebar">
         <span class="toggle-slider"></span>
       </label>
+    </div>
+
+    <!-- Background Image -->
+    <div class="settings-section-title">背景图片</div>
+    <div class="settings-group">
+      <button id="btn-choose-bg-image" class="bg-image-btn">选择图片</button>
+      <button id="btn-clear-bg-image" class="bg-image-btn bg-image-btn-clear hidden">清除图片</button>
     </div>
 
     <!-- Preset buttons -->

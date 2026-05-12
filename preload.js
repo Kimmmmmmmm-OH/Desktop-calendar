@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   togglePin: () => ipcRenderer.invoke('toggle-pin'),
   getPinState: () => ipcRenderer.invoke('get-pin-state'),
   panelStateChanged: (state) => ipcRenderer.invoke('panel-state-changed', state),
+  openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
   toggleMiniMode: () => ipcRenderer.invoke('toggle-mini-mode'),
   quitApp: () => ipcRenderer.invoke('quit-app')
 });

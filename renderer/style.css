@@ -56,6 +56,9 @@
   --lunar-font-size: 7px;
   --cell-todo-font-size: 7px;
   --weekday-font-size: 10px;
+
+  /* Text opacity (independent from window opacity) */
+  --text-opacity: 1;
 }
 
 /* === Global === */
@@ -73,6 +76,11 @@ body {
 }
 #weekday-header {
   -webkit-app-region: drag;
+}
+/* When panels are open, disable drag on weekday header to avoid conflict */
+#settings-panel.open ~ #weekday-header,
+#memo-panel.open ~ #weekday-header {
+  -webkit-app-region: no-drag;
 }
 #calendar-grid {
   -webkit-app-region: drag;
@@ -104,6 +112,13 @@ body {
   overflow: hidden;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+
+/* Background image overlay */
+#app.has-bg-image {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 /* ================================================================
@@ -357,6 +372,8 @@ body {
 .cancel-btn,
 #todo-input,
 #todo-edit-input,
+#bg-opacity-slider,
+#text-opacity-slider,
 #detail-view,
 #detail-view *,
 #settings-panel,
@@ -371,6 +388,37 @@ body {
 .title-actions,
 .title-actions * {
   -webkit-app-region: no-drag;
+}
+
+/* ================================================================
+   TEXT OPACITY (字体透明度独立于窗口透明度)
+   ================================================================ */
+.calendar-cell .solar-date,
+.calendar-cell .lunar-date,
+.calendar-cell.weekend .solar-date,
+.cell-todo,
+.cell-more,
+#weekday-header,
+#current-month-year,
+#selected-date-label,
+.todo-text,
+.todo-empty,
+.todo-count,
+.detail-empty,
+#detail-date-label,
+#detail-lunar-label,
+#detail-todo-count,
+.title-text,
+#mini-month,
+#mini-day,
+#mini-weekday,
+.settings-group > label:first-child,
+.settings-section-title,
+.slider-value,
+.slide-panel-header > span,
+#memo-textarea,
+.close-dialog-title {
+  opacity: var(--text-opacity);
 }
 
 .settings-section-title {
@@ -406,6 +454,7 @@ body {
   background: var(--bg-tertiary);
   outline: none;
   cursor: pointer;
+  -webkit-app-region: no-drag;
 }
 .settings-group input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
@@ -443,6 +492,60 @@ body {
   color: var(--text-secondary); text-align: right;
   font-variant-numeric: tabular-nums;
 }
+
+/* Font family select */
+.font-select {
+  flex: 1; padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 11px; font-family: inherit;
+  outline: none; cursor: pointer;
+  transition: border-color var(--duration-fast) var(--ease-in-out),
+              box-shadow var(--duration-fast) var(--ease-in-out);
+}
+.font-select:hover { border-color: var(--accent); }
+.font-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), 0.15);
+}
+.font-select option {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* Background image buttons */
+.bg-image-btn {
+  padding: 5px 14px; border-radius: 12px;
+  font-size: 11px; font-weight: 500;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary); cursor: pointer;
+  font-family: inherit; letter-spacing: 0.3px;
+  transition: background var(--duration-fast) var(--ease-in-out),
+              color var(--duration-fast) var(--ease-in-out),
+              border-color var(--duration-fast) var(--ease-in-out),
+              transform var(--duration-fast) var(--ease-spring);
+}
+.bg-image-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.1);
+  transform: translateY(-1px);
+}
+.bg-image-btn:active { transform: scale(0.96); }
+.bg-image-btn-clear {
+  color: var(--accent-red);
+  border-color: rgba(var(--accent-red-rgb), 0.3);
+  background: rgba(var(--accent-red-rgb), 0.06);
+}
+.bg-image-btn-clear:hover {
+  color: var(--accent-red);
+  border-color: var(--accent-red);
+  background: rgba(var(--accent-red-rgb), 0.18);
+}
+#btn-clear-bg-image.hidden { display: none; }
 
 /* Color picker */
 .settings-group input[type="color"] {

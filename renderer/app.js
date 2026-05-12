@@ -231,6 +231,14 @@ const PRESETS = {
   default: { bgH: 240, bgS: 15, bgL: 12, fgH: 40, fgS: 40, fgL: 62 }
 };
 
+const SYSTEM_FONTS = [
+  'Microsoft YaHei', 'PingFang SC', 'SimSun', 'SimHei',
+  'KaiTi', 'FangSong', 'DengXian', 'YouYuan',
+  'Microsoft JhengHei', 'Helvetica Neue', 'Arial',
+  'Segoe UI', 'Consolas', 'Courier New', 'Georgia',
+  'Times New Roman', 'Verdana', 'Tahoma'
+];
+
 function applyPreset(name) {
   const p = PRESETS[name] || PRESETS['default'];
   document.getElementById('bg-hue-slider').value = p.bgH;
@@ -738,8 +746,23 @@ function applyTheme(name) {
 async function loadSettings() {
   if (window.electronAPI) {
     const s = await window.electronAPI.getSettings();
-    document.getElementById('transparency-slider').value = Math.round((s.transparency || 0.92) * 100);
-    document.getElementById('transparency-value').textContent = Math.round((s.transparency || 0.92) * 100) + '%';
+    const bgOpacity = s.bgOpacity ?? s.transparency ?? 0.92;
+    document.getElementById('bg-opacity-slider').value = Math.round(bgOpacity * 100);
+    document.getElementById('bg-opacity-value').textContent = Math.round(bgOpacity * 100) + '%';
+
+    const textOpacity = (s.textOpacity !== undefined ? s.textOpacity : 1.0);
+    document.getElementById('text-opacity-slider').value = Math.round(textOpacity * 100);
+    applyTextOpacity(Math.round(textOpacity * 100));
+
+    const fontFamily = s.fontFamily || SYSTEM_FONTS[0];
+    populateFontSelect(fontFamily);
+    applyFontFamily(fontFamily);
+
+    const bgImage = s.backgroundImage || '';
+    if (bgImage) {
+      applyBackgroundImage(bgImage);
+      document.getElementById('btn-clear-bg-image').classList.remove('hidden');
+    }
     const bgH = s.bgHue !== undefined ? s.bgHue : 240;
     const bgS = s.bgSat !== undefined ? s.bgSat : 15;
     const bgL = s.bgLight !== undefined ? s.bgLight : 12;
@@ -796,11 +819,75 @@ async function loadSettings() {
   }
 }
 
-async function updateTransparency(val) {
-  const opacity = val / 100;
-  document.getElementById('transparency-value').textContent = val + '%';
+function applyTextOpacity(val) {
+  const opacityVal = (val / 100).toFixed(2);
+  document.documentElement.style.setProperty('--text-opacity', opacityVal);
+  document.getElementById('text-opacity-value').textContent = val + '%';
+}
+
+async function updateTextOpacity(val) {
+  applyTextOpacity(val);
   if (window.electronAPI) {
-    await window.electronAPI.saveSettings({ transparency: opacity });
+    await window.electronAPI.saveSettings({ textOpacity: val / 100 });
+  }
+}
+
+async function updateBgOpacity(val) {
+  document.getElementById('bg-opacity-value').textContent = val + '%';
+  if (window.electronAPI) {
+    await window.electronAPI.saveSettings({ bgOpacity: val / 100 });
+  }
+}
+
+function applyFontFamily(family) {
+  document.body.style.fontFamily = `"${family}", "${SYSTEM_FONTS[0]}", sans-serif`;
+}
+
+async function updateFontFamily(family) {
+  applyFontFamily(family);
+  if (window.electronAPI) {
+    await window.electronAPI.saveSettings({ fontFamily: family });
+  }
+}
+
+function populateFontSelect(selectedFont) {
+  const select = document.getElementById('font-family-select');
+  select.innerHTML = '';
+  for (const font of SYSTEM_FONTS) {
+    const opt = document.createElement('option');
+    opt.value = font;
+    opt.textContent = font;
+    if (font === selectedFont) opt.selected = true;
+    select.appendChild(opt);
+  }
+}
+
+function applyBackgroundImage(dataUrl) {
+  const app = document.getElementById('app');
+  if (dataUrl) {
+    app.style.backgroundImage = `url(${dataUrl})`;
+    app.classList.add('has-bg-image');
+  } else {
+    app.style.backgroundImage = '';
+    app.classList.remove('has-bg-image');
+  }
+}
+
+async function chooseBackgroundImage() {
+  if (!window.electronAPI) return;
+  const dataUrl = await window.electronAPI.openFileDialog();
+  if (dataUrl) {
+    applyBackgroundImage(dataUrl);
+    await window.electronAPI.saveSettings({ backgroundImage: dataUrl });
+    document.getElementById('btn-clear-bg-image').classList.remove('hidden');
+  }
+}
+
+async function clearBackgroundImage() {
+  applyBackgroundImage('');
+  document.getElementById('btn-clear-bg-image').classList.add('hidden');
+  if (window.electronAPI) {
+    await window.electronAPI.saveSettings({ backgroundImage: '' });
   }
 }
 
@@ -1237,8 +1324,20 @@ function init() {
   document.getElementById('panel-overlay').addEventListener('click', () => {
     closeAllPanels();
   });
-  document.getElementById('transparency-slider').addEventListener('input', (e) => {
-    updateTransparency(parseInt(e.target.value));
+  document.getElementById('bg-opacity-slider').addEventListener('input', (e) => {
+    updateBgOpacity(parseInt(e.target.value));
+  });
+  document.getElementById('text-opacity-slider').addEventListener('input', (e) => {
+    updateTextOpacity(parseInt(e.target.value));
+  });
+  document.getElementById('font-family-select').addEventListener('change', (e) => {
+    updateFontFamily(e.target.value);
+  });
+  document.getElementById('btn-choose-bg-image').addEventListener('click', () => {
+    chooseBackgroundImage();
+  });
+  document.getElementById('btn-clear-bg-image').addEventListener('click', () => {
+    clearBackgroundImage();
   });
   document.getElementById('month-font-slider').addEventListener('input', (e) => {
     document.getElementById('month-font-value').textContent = e.target.value + 'px';
@@ -1327,7 +1426,9 @@ function init() {
 
   document.getElementById('btn-save-settings').addEventListener('click', async () => {
     const settings = {
-      transparency: parseInt(document.getElementById('transparency-slider').value) / 100,
+      bgOpacity: parseInt(document.getElementById('bg-opacity-slider').value) / 100,
+      textOpacity: parseInt(document.getElementById('text-opacity-slider').value) / 100,
+      fontFamily: document.getElementById('font-family-select').value,
       bgHue: parseInt(document.getElementById('bg-hue-slider').value),
       bgSat: parseInt(document.getElementById('bg-sat-slider').value),
       bgLight: parseInt(document.getElementById('bg-light-slider').value),
