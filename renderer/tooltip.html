@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Tooltip</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", sans-serif;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+}
+#tooltip {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 24px 24px 24px;
+  min-width: 300px;
+  max-width: 460px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,0,0,0.06) inset;
+  color: var(--text);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(8px) scale(0.97);
+  transition: opacity 0.22s ease-out, transform 0.3s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+#tooltip.visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+#tooltip-header {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#tooltip-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tooltip-item {
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.5;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  word-break: break-word;
+}
+.tooltip-item::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 1px;
+  border: 1px solid var(--text-muted);
+  flex-shrink: 0;
+}
+.tooltip-item.completed {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+.tooltip-item.completed::before {
+  background: var(--accent-green);
+  border-color: var(--accent-green);
+}
+.tooltip-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px 0;
+}
+</style>
+</head>
+<body>
+<div id="tooltip">
+  <div id="tooltip-header"></div>
+  <div id="tooltip-list"></div>
+</div>
+<script src="tooltip.js"></script>
+</body>
+</html>

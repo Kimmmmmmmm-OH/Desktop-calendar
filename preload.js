@@ -14,5 +14,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   panelStateChanged: (state) => ipcRenderer.invoke('panel-state-changed', state),
   openFileDialog: () => ipcRenderer.invoke('open-file-dialog'),
   toggleMiniMode: () => ipcRenderer.invoke('toggle-mini-mode'),
-  quitApp: () => ipcRenderer.invoke('quit-app')
+  setMiniExpanded: (expanded) => ipcRenderer.invoke('set-mini-expanded', expanded),
+  quitApp: () => ipcRenderer.invoke('quit-app'),
+  onWindowState: (callback) => ipcRenderer.on('window-state', (_, state) => callback(state)),
+  showTooltip: (data) => ipcRenderer.invoke('show-tooltip', data),
+  hideTooltip: () => ipcRenderer.invoke('hide-tooltip'),
+  startTooltipTimer: () => ipcRenderer.send('start-tooltip-timer'),
+  cancelTooltipTimer: () => ipcRenderer.send('cancel-tooltip-timer'),
+  onOpenDetailFromTooltip: (callback) => ipcRenderer.on('open-detail-from-tooltip', (_, key) => callback(key))
 });

@@ -54,8 +54,8 @@
   --month-font-size: 17px;
   --date-font-size: 14px;
   --lunar-font-size: 7px;
-  --cell-todo-font-size: 7px;
   --weekday-font-size: 10px;
+  --todo-dot-size: 5px;
 
   /* Text opacity (independent from window opacity) */
   --text-opacity: 1;
@@ -109,9 +109,16 @@ body {
               0 0 30px rgba(var(--accent-rgb), 0.10),
               inset 0 1px 0 rgba(255,255,255,0.04);
   display: flex; flex-direction: column;
+  position: relative;
   overflow: hidden;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+
+#app.maximized {
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
 }
 
 /* Background image overlay */
@@ -362,7 +369,6 @@ body {
 
 /* Only truly interactive elements prevent window dragging */
 .calendar-cell,
-.cell-more,
 .todo-item,
 .todo-checkbox,
 .todo-delete,
@@ -396,8 +402,6 @@ body {
 .calendar-cell .solar-date,
 .calendar-cell .lunar-date,
 .calendar-cell.weekend .solar-date,
-.cell-todo,
-.cell-more,
 #weekday-header,
 #current-month-year,
 #selected-date-label,
@@ -422,7 +426,7 @@ body {
 }
 
 .settings-section-title {
-  font-size: 10px; font-weight: 700;
+  font-size: 12px; font-weight: 700;
   color: var(--accent);
   text-transform: uppercase; letter-spacing: 1.2px;
   padding: 12px 14px 4px;
@@ -435,17 +439,17 @@ body {
 
 .settings-group {
   display: flex; align-items: center; gap: 8px;
-  padding: 4px 14px;
-  font-size: 11px; color: var(--text-primary);
+  padding: 5px 14px;
+  font-size: 13px; color: var(--text-primary);
 }
 .settings-group label:first-child {
-  width: 44px; flex-shrink: 0;
+  width: 48px; flex-shrink: 0;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 13px;
 }
-.settings-group.toggle-group label:first-child { width: 72px; }
-.settings-group.color-group label:first-child { width: 48px; }
-.hsl-group.settings-group label:first-child { width: 30px; font-size: 10px; }
+.settings-group.toggle-group label:first-child { width: 78px; }
+.settings-group.color-group label:first-child { width: 52px; }
+.hsl-group.settings-group label:first-child { width: 34px; font-size: 12px; }
 
 /* Range sliders */
 .settings-group input[type="range"] {
@@ -488,19 +492,19 @@ body {
 }
 
 .slider-value {
-  width: 32px; font-size: 10px; font-weight: 500;
+  width: 38px; font-size: 12px; font-weight: 500;
   color: var(--text-secondary); text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
 /* Font family select */
 .font-select {
-  flex: 1; padding: 4px 8px;
+  flex: 1; padding: 5px 10px;
   border-radius: var(--radius-xs);
   border: 1px solid var(--border-strong);
   background: var(--bg-tertiary);
   color: var(--text-primary);
-  font-size: 11px; font-family: inherit;
+  font-size: 13px; font-family: inherit;
   outline: none; cursor: pointer;
   transition: border-color var(--duration-fast) var(--ease-in-out),
               box-shadow var(--duration-fast) var(--ease-in-out);
@@ -517,8 +521,8 @@ body {
 
 /* Background image buttons */
 .bg-image-btn {
-  padding: 5px 14px; border-radius: 12px;
-  font-size: 11px; font-weight: 500;
+  padding: 6px 16px; border-radius: 12px;
+  font-size: 13px; font-weight: 500;
   border: 1px solid var(--border-strong);
   background: var(--bg-tertiary);
   color: var(--text-secondary); cursor: pointer;
@@ -600,7 +604,7 @@ input:checked + .toggle-slider::before {
   border-top: 1px solid var(--border);
 }
 .preset-btn {
-  padding: 5px 12px; border-radius: 12px; font-size: 11px; font-weight: 500;
+  padding: 6px 14px; border-radius: 12px; font-size: 13px; font-weight: 500;
   border: 1px solid var(--border-strong); background: var(--bg-tertiary);
   color: var(--text-secondary); cursor: pointer;
   transition: all var(--duration-fast) var(--ease-in-out);
@@ -632,7 +636,7 @@ input:checked + .toggle-slider::before {
   padding: 10px 14px 16px;
 }
 .save-settings-btn {
-  padding: 8px 28px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  padding: 9px 32px; border-radius: 20px; font-size: 14px; font-weight: 600;
   border: 1px solid var(--accent-dark);
   background: rgba(var(--accent-rgb), 0.12);
   color: var(--accent); cursor: pointer;
@@ -710,10 +714,14 @@ input:checked + .toggle-slider::before {
 .month-year {
   display: flex; align-items: center; gap: 10px;
 }
-#current-month-year {
+#current-year,
+#current-month {
   font-size: var(--month-font-size); font-weight: 600;
   color: var(--text-primary);
   letter-spacing: 0.6px;
+}
+#current-year {
+  margin-right: 10px;
 }
 .today-btn {
   font-size: 10px; font-weight: 600; padding: 5px 12px;
@@ -805,7 +813,7 @@ input:checked + .toggle-slider::before {
 
 #calendar-grid {
   display: grid; grid-template-columns: repeat(7, 1fr);
-  grid-auto-rows: 1fr;
+  grid-auto-rows: minmax(52px, 1fr);
   gap: 4px; padding: 4px 12px 30px;
   flex: 1; overflow-y: auto;
 }
@@ -828,10 +836,10 @@ input:checked + .toggle-slider::before {
 /* Hover: subtle lift + accent glow */
 .calendar-cell:hover {
   background: var(--bg-hover);
-  border-color: rgba(var(--accent-rgb), 0.2);
-  transform: scale(1.05);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.2),
-              0 0 8px rgba(var(--accent-rgb), 0.06);
+  border-color: rgba(var(--accent-rgb), 0.25);
+  transform: scale(1.06);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25),
+              0 0 12px rgba(var(--accent-rgb), 0.1);
   z-index: 2;
 }
 .calendar-cell.other-month { opacity: 0.22; cursor: default; }
@@ -843,21 +851,23 @@ input:checked + .toggle-slider::before {
 /* Today: glowing accent ring with subtle pulse */
 .calendar-cell.today {
   border-color: var(--accent) !important;
-  background: rgba(var(--accent-rgb), 0.12) !important;
-  box-shadow: 0 0 16px rgba(var(--accent-rgb), 0.25),
-              0 0 4px rgba(var(--accent-rgb), 0.15),
-              inset 0 0 12px rgba(var(--accent-rgb), 0.05) !important;
+  border-width: 2px !important;
+  background: rgba(var(--accent-rgb), 0.35) !important;
+  box-shadow: 0 0 28px rgba(var(--accent-rgb), 0.45),
+              0 0 10px rgba(var(--accent-rgb), 0.3),
+              inset 0 0 20px rgba(var(--accent-rgb), 0.12) !important;
   animation: todayPulse 3s ease-in-out infinite;
 }
 .calendar-cell.today:hover {
-  box-shadow: 0 0 24px rgba(var(--accent-rgb), 0.4),
-              0 0 8px rgba(var(--accent-rgb), 0.2),
-              inset 0 0 14px rgba(var(--accent-rgb), 0.08) !important;
+  box-shadow: 0 0 32px rgba(var(--accent-rgb), 0.5),
+              0 0 12px rgba(var(--accent-rgb), 0.35),
+              inset 0 0 18px rgba(var(--accent-rgb), 0.14) !important;
   animation: none;
 }
 .calendar-cell.today .solar-date {
   color: var(--accent) !important;
   font-weight: 700;
+  transform: scale(1.18);
 }
 
 /* Selected: stronger accent background */
@@ -885,6 +895,8 @@ input:checked + .toggle-slider::before {
   font-size: var(--date-font-size); line-height: 1.1;
   color: var(--text-primary); font-weight: 500;
   transition: color var(--duration-fast) var(--ease-in-out);
+  text-align: center;
+  width: 100%;
 }
 
 /* Lunar date / holiday */
@@ -892,43 +904,45 @@ input:checked + .toggle-slider::before {
   font-size: var(--lunar-font-size); line-height: 1;
   color: var(--text-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-align: center;
+  width: 100%;
 }
 .calendar-cell .lunar-date.holiday {
   color: var(--accent-red); font-weight: 600;
 }
 
-/* Cell inline todos */
-.cell-todos {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 1px; margin-top: 2px; width: 100%;
+/* Todo dots under lunar date */
+.todo-dots {
+  display: flex; align-items: center; justify-content: center;
+  gap: 3px;
+  margin-top: 3px;
+  width: 100%;
+  min-height: 6px;
 }
-.cell-todo {
-  font-size: var(--cell-todo-font-size); line-height: 1.2;
-  color: var(--cell-todo-color, var(--text-secondary));
-  font-weight: var(--cell-todo-weight, normal);
-  white-space: normal; word-break: break-all;
-  display: inline-flex; align-items: center; gap: 0.35em;
-  text-align: left; max-width: 100%;
-}
-.cell-todo::before {
-  content: '';
-  width: 0.5em; height: 0.5em;
-  border-radius: 1px;
-  border: 1px solid var(--text-muted);
+.todo-dot {
+  width: var(--todo-dot-size);
+  height: var(--todo-dot-size);
+  border-radius: 50%;
+  background: var(--todo-dot-color, var(--accent));
+  border: 1px solid var(--todo-dot-color, var(--accent));
   flex-shrink: 0;
-  transition: background var(--duration-fast) var(--ease-in-out);
+  animation: dotPopIn 0.28s var(--ease-spring) backwards;
 }
-.cell-todo.completed {
-  text-decoration: line-through;
-  color: var(--text-muted); opacity: 0.45;
+.todo-dot:nth-child(2) { animation-delay: 0.04s; }
+.todo-dot:nth-child(3) { animation-delay: 0.08s; }
+.todo-dot.completed {
+  background: transparent;
 }
-.cell-todo.completed::before {
-  background: var(--accent-green);
-  border-color: var(--accent-green);
-}
-.cell-more {
-  font-size: var(--cell-todo-font-size); font-weight: 500;
-  color: var(--accent); text-align: center; margin-top: 1px;
+.todo-dot-more {
+  font-size: var(--todo-dot-size);
+  font-weight: 700;
+  color: var(--todo-dot-color, var(--accent));
+  line-height: 1;
+  margin-left: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: dotPopIn 0.28s var(--ease-spring) 0.1s backwards;
 }
 
 /* ================================================================
@@ -1223,11 +1237,8 @@ input:checked + .toggle-slider::before {
   align-items: center; justify-content: center;
   width: 66px; height: 66px;
   border-radius: 16px;
-  background: linear-gradient(145deg,
-    var(--bg-secondary), var(--bg-primary));
   border: 2px solid rgba(var(--accent-rgb), 0.4);
-  box-shadow: 0 4px 24px rgba(0,0,0,0.45),
-              0 0 20px rgba(var(--accent-rgb), 0.2),
+  box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.25),
               inset 0 1px 0 rgba(255,255,255,0.03);
   transition: transform var(--duration-fast) var(--ease-spring),
               box-shadow var(--duration-fast) var(--ease-in-out),
@@ -1237,8 +1248,7 @@ input:checked + .toggle-slider::before {
 #mini-calendar-icon:hover {
   transform: scale(1.06);
   border-color: rgba(var(--accent-rgb), 0.7);
-  box-shadow: 0 6px 32px rgba(0,0,0,0.55),
-              0 0 28px rgba(var(--accent-rgb), 0.35),
+  box-shadow: 0 0 28px rgba(var(--accent-rgb), 0.4),
               inset 0 1px 0 rgba(255,255,255,0.05);
 }
 #mini-calendar-icon:active { transform: scale(0.96); }
@@ -1397,29 +1407,17 @@ input:checked + .toggle-slider::before {
 #detail-todo-edit-input::placeholder { color: var(--text-muted); }
 
 /* ================================================================
-   CLICKABLE "MORE" IN CELLS
+   DATE TOOLTIP (handled by independent BrowserWindow)
    ================================================================ */
-
-.cell-more {
-  font-size: var(--cell-todo-font-size); font-weight: 600;
-  color: var(--accent); text-align: center; margin-top: 1px;
-  cursor: pointer;
-  padding: 2px 6px; border-radius: 4px;
-  border: 1px solid transparent;
-  transition: background var(--duration-fast) var(--ease-in-out),
-              border-color var(--duration-fast) var(--ease-in-out),
-              transform var(--duration-fast) var(--ease-spring);
-}
-.cell-more:hover {
-  background: rgba(var(--accent-rgb), 0.15);
-  border-color: rgba(var(--accent-rgb), 0.25);
-  transform: scale(1.08);
-}
-.cell-more:active { transform: scale(0.95); }
 
 /* ================================================================
    ANIMATIONS
    ================================================================ */
+
+@keyframes dotPopIn {
+  from { opacity: 0; transform: scale(0); }
+  to   { opacity: 1; transform: scale(1); }
+}
 
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(4px); }
@@ -1460,15 +1458,17 @@ input:checked + .toggle-slider::before {
   100% { transform: scale(1); }
 }
 
-/* Staggered cell entrance */
+/* Staggered cell entrance — row-by-row wave */
 .calendar-cell {
-  animation: fadeSlideIn 0.18s var(--ease-out) backwards;
+  animation: fadeSlideIn 0.22s var(--ease-out) backwards;
 }
-/* Subtle staggered delay via nth-child — quick enough to not feel sluggish */
-.calendar-cell:nth-child(2)  { animation-delay: 0.01s; }
-.calendar-cell:nth-child(5)  { animation-delay: 0.02s; }
-.calendar-cell:nth-child(9)  { animation-delay: 0.03s; }
-.calendar-cell:nth-child(14) { animation-delay: 0.04s; }
+.calendar-cell:nth-child(7n+1) { animation-delay: 0.00s; }
+.calendar-cell:nth-child(7n+2) { animation-delay: 0.015s; }
+.calendar-cell:nth-child(7n+3) { animation-delay: 0.03s; }
+.calendar-cell:nth-child(7n+4) { animation-delay: 0.045s; }
+.calendar-cell:nth-child(7n+5) { animation-delay: 0.06s; }
+.calendar-cell:nth-child(7n+6) { animation-delay: 0.075s; }
+.calendar-cell:nth-child(7n+7) { animation-delay: 0.09s; }
 
 /* ================================================================
    FOCUS & ACTIVE RING (keyboard nav)

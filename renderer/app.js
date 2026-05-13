@@ -298,11 +298,6 @@ function applyTitlebarHide(hidden) {
   }
 }
 
-function toggleTodoPanel() {
-  const section = document.getElementById('todo-section');
-  section.classList.toggle('collapsed');
-}
-
 /* ================================================================
    CALENDAR UI MODULE
    ================================================================ */
@@ -336,8 +331,8 @@ function isToday(y, m, d) {
 
 function renderCalendar() {
   const grid = document.getElementById('calendar-grid');
-  const titleEl = document.getElementById('current-month-year');
-  titleEl.textContent = `${currentYear}年 ${currentMonth}月`;
+  document.getElementById('current-year').textContent = currentYear + '年';
+  document.getElementById('current-month').textContent = currentMonth + '月';
 
   grid.innerHTML = '';
 
@@ -435,37 +430,72 @@ function renderCalendar() {
       const key = dateKey(currentYear, currentMonth, solarDay);
       const dayTodos = todos[key];
       if (dayTodos && dayTodos.length > 0) {
-        const todosWrap = document.createElement('div');
-        todosWrap.classList.add('cell-todos');
-        const maxShow = 2;
-        const shown = dayTodos.slice(0, maxShow);
-        for (const t of shown) {
-          const tEl = document.createElement('span');
-          tEl.classList.add('cell-todo');
-          if (t.completed) tEl.classList.add('completed');
-          tEl.textContent = t.text;
-          todosWrap.appendChild(tEl);
+        const dotsWrap = document.createElement('div');
+        dotsWrap.classList.add('todo-dots');
+        const total = dayTodos.length;
+        let pending = 0;
+        for (const t of dayTodos) if (!t.completed) pending++;
+
+        const dotsToRender = total <= 3 ? total : 3;
+        const solidCount = total <= 3 ? pending : Math.min(pending, 3);
+        for (let i = 0; i < dotsToRender; i++) {
+          const dot = document.createElement('span');
+          dot.className = 'todo-dot' + (i < solidCount ? '' : ' completed');
+          dotsWrap.appendChild(dot);
         }
-        if (dayTodos.length > maxShow) {
-          const more = document.createElement('span');
-          more.classList.add('cell-more');
-          more.textContent = `+${dayTodos.length - maxShow} 更多`;
-          more.addEventListener('click', (ev) => {
-            ev.stopPropagation();
-            openDetailView(currentYear, currentMonth, solarDay);
-          });
-          todosWrap.appendChild(more);
+        if (total > 3) {
+          const plus = document.createElement('span');
+          plus.className = 'todo-dot-more';
+          plus.textContent = '+';
+          dotsWrap.appendChild(plus);
         }
-        cell.appendChild(todosWrap);
+        cell.appendChild(dotsWrap);
       }
     }
 
     if (!isOtherMonth) {
       cell.addEventListener('click', () => selectDate(currentYear, currentMonth, solarDay));
+      cell.addEventListener('mouseenter', (e) => showDateTooltip(e.currentTarget, currentYear, currentMonth, solarDay, cellLunar));
+      cell.addEventListener('mouseleave', hideDateTooltip);
     }
 
     cell.title = formatDateCN(currentYear, currentMonth, solarDay);
     grid.appendChild(cell);
+  }
+}
+
+async function showDateTooltip(anchorEl, y, m, d, lunar) {
+  if (!window.electronAPI || !window.electronAPI.showTooltip) return;
+  const holiday = getLunarHoliday(lunar) || getSolarHoliday(m, d);
+  const header = formatDateCN(y, m, d) + (holiday ? ' · ' + holiday : '');
+  const key = dateKey(y, m, d);
+  const dayTodos = todos[key] || [];
+  const items = dayTodos.map(t => ({ text: t.text, completed: t.completed }));
+
+  const root = getComputedStyle(document.documentElement);
+  const theme = {
+    bg: root.getPropertyValue('--bg-secondary').trim() || 'hsl(240, 15%, 16%)',
+    border: root.getPropertyValue('--border-strong').trim() || 'rgba(255,255,255,0.14)',
+    borderLight: 'rgba(255,255,255,0.08)',
+    accent: root.getPropertyValue('--accent').trim() || 'hsl(40, 40%, 62%)',
+    text: root.getPropertyValue('--text-primary').trim() || '#e8e6e3',
+    textMuted: root.getPropertyValue('--text-muted').trim() || '#6a6870',
+    accentGreen: root.getPropertyValue('--accent-green').trim() || '#6b9e6d'
+  };
+
+  const anchorRect = anchorEl.getBoundingClientRect();
+  await window.electronAPI.showTooltip({
+    header,
+    items,
+    theme,
+    dateKey: key,
+    anchorRect: { left: anchorRect.left, right: anchorRect.right, top: anchorRect.top, bottom: anchorRect.bottom, width: anchorRect.width, height: anchorRect.height }
+  });
+}
+
+function hideDateTooltip() {
+  if (window.electronAPI && window.electronAPI.hideTooltip) {
+    window.electronAPI.hideTooltip();
   }
 }
 
@@ -518,7 +548,6 @@ function addTodo(text) {
   });
   saveTodos();
   renderCalendar();
-  renderTodoList();
 }
 
 function toggleTodo(key, id) {
@@ -528,7 +557,6 @@ function toggleTodo(key, id) {
     todo.completed = !todo.completed;
     saveTodos();
     renderCalendar();
-    renderTodoList();
   }
 }
 
@@ -538,7 +566,6 @@ function deleteTodo(key, id) {
   if (todos[key].length === 0) delete todos[key];
   saveTodos();
   renderCalendar();
-  renderTodoList();
 }
 
 function clearCompleted(key) {
@@ -547,156 +574,6 @@ function clearCompleted(key) {
   if (todos[key].length === 0) delete todos[key];
   saveTodos();
   renderCalendar();
-  renderTodoList();
-}
-
-function startEditTodo(key, id) {
-  const todo = todos[key].find(t => t.id === id);
-  if (!todo) return;
-
-  const list = document.getElementById('todo-list');
-  const editRow = document.getElementById('todo-edit-row');
-  const editInput = document.getElementById('todo-edit-input');
-
-  const items = list.querySelectorAll('.todo-item');
-  for (const item of items) {
-    if (item.dataset.todoId === String(id)) {
-      item.classList.add('editing');
-      break;
-    }
-  }
-
-  editInput.value = todo.text;
-  editInput.dataset.editKey = key;
-  editInput.dataset.editId = String(id);
-  editRow.classList.remove('hidden');
-  editInput.focus();
-  editInput.select();
-}
-
-function saveEditTodo() {
-  const editInput = document.getElementById('todo-edit-input');
-  const editRow = document.getElementById('todo-edit-row');
-  const key = editInput.dataset.editKey;
-  const id = parseInt(editInput.dataset.editId);
-  const newText = editInput.value.trim();
-
-  editRow.classList.add('hidden');
-  delete editInput.dataset.editKey;
-  delete editInput.dataset.editId;
-
-  const list = document.getElementById('todo-list');
-  const items = list.querySelectorAll('.todo-item');
-  for (const item of items) {
-    item.classList.remove('editing');
-  }
-
-  if (!newText || !todos[key]) return;
-  const todo = todos[key].find(t => t.id === id);
-  if (todo) {
-    todo.text = newText;
-    saveTodos();
-    renderTodoList();
-  }
-}
-
-function cancelEditTodo() {
-  const editRow = document.getElementById('todo-edit-row');
-  const editInput = document.getElementById('todo-edit-input');
-  editRow.classList.add('hidden');
-  delete editInput.dataset.editKey;
-  delete editInput.dataset.editId;
-
-  const list = document.getElementById('todo-list');
-  const items = list.querySelectorAll('.todo-item');
-  for (const item of items) {
-    item.classList.remove('editing');
-  }
-}
-
-function renderTodoList() {
-  const list = document.getElementById('todo-list');
-  const label = document.getElementById('selected-date-label');
-  const inputRow = document.getElementById('todo-input-row');
-  const editRow = document.getElementById('todo-edit-row');
-  const clearBtn = document.getElementById('btn-clear-completed');
-  const countEl = document.getElementById('todo-count');
-
-  inputRow.classList.add('hidden');
-  editRow.classList.add('hidden');
-
-  if (!selectedDate) {
-    label.textContent = '选择日期查看待办';
-    list.innerHTML = '<div class="todo-empty">点击日历中的日期查看待办事项</div>';
-    clearBtn.classList.add('hidden');
-    countEl.textContent = '';
-    return;
-  }
-
-  const key = getSelectedDateKey();
-  label.textContent = formatDateCN(selectedDate.year, selectedDate.month, selectedDate.day) + ' 待办';
-
-  const dayTodos = todos[key] || [];
-
-  const total = dayTodos.length;
-  const completed = dayTodos.filter(t => t.completed).length;
-  const pending = total - completed;
-  if (total > 0) {
-    countEl.textContent = `${pending} 待办 / ${completed} 已完成`;
-  } else {
-    countEl.textContent = '';
-  }
-
-  if (completed > 0) {
-    clearBtn.classList.remove('hidden');
-  } else {
-    clearBtn.classList.add('hidden');
-  }
-
-  if (dayTodos.length === 0) {
-    list.innerHTML = '<div class="todo-empty">暂无待办，点击 + 添加</div>';
-    return;
-  }
-
-  const sorted = [...dayTodos].sort((a, b) => {
-    if (a.completed !== b.completed) return a.completed ? 1 : -1;
-    return b.createdAt - a.createdAt;
-  });
-
-  list.innerHTML = '';
-  for (const todo of sorted) {
-    const item = document.createElement('div');
-    item.classList.add('todo-item');
-    item.dataset.todoId = String(todo.id);
-    if (todo.completed) item.classList.add('completed');
-
-    const checkbox = document.createElement('span');
-    checkbox.classList.add('todo-checkbox');
-    checkbox.addEventListener('click', () => toggleTodo(key, todo.id));
-
-    const text = document.createElement('span');
-    text.classList.add('todo-text');
-    text.textContent = todo.text;
-
-    item.addEventListener('dblclick', (e) => {
-      if (e.target === checkbox || e.target.classList.contains('todo-delete')) return;
-      startEditTodo(key, todo.id);
-    });
-
-    const delBtn = document.createElement('button');
-    delBtn.classList.add('todo-delete');
-    delBtn.textContent = '✕';
-    delBtn.title = '删除';
-    delBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      deleteTodo(key, todo.id);
-    });
-
-    item.appendChild(checkbox);
-    item.appendChild(text);
-    item.appendChild(delBtn);
-    list.appendChild(item);
-  }
 }
 
 async function saveTodos() {
@@ -723,8 +600,12 @@ function applyMonthFontSize(px) {
 
 function applyDateFontSize(px) {
   document.documentElement.style.setProperty('--date-font-size', px + 'px');
-  document.documentElement.style.setProperty('--lunar-font-size', Math.max(5, Math.round(px * 0.5)) + 'px');
   document.getElementById('date-font-value').textContent = px + 'px';
+}
+
+function applyLunarFontSize(px) {
+  document.documentElement.style.setProperty('--lunar-font-size', px + 'px');
+  document.getElementById('lunar-font-value').textContent = px + 'px';
 }
 
 function applyWeekdayFontSize(px) {
@@ -732,9 +613,9 @@ function applyWeekdayFontSize(px) {
   document.getElementById('weekday-font-value').textContent = px + 'px';
 }
 
-function applyCellTodoFontSize(px) {
-  document.documentElement.style.setProperty('--cell-todo-font-size', px + 'px');
-  document.getElementById('cell-todo-font-value').textContent = px + 'px';
+function applyTodoDotSize(px) {
+  document.documentElement.style.setProperty('--todo-dot-size', px + 'px');
+  document.getElementById('todo-dot-size-value').textContent = px + 'px';
 }
 
 function applyTheme(name) {
@@ -780,28 +661,25 @@ async function loadSettings() {
     const mf = s.monthFontSize || 17;
     const df = s.dateFontSize || 14;
     const wf = s.weekdayFontSize || 10;
-    const cf = s.cellTodoFontSize || 7;
     document.getElementById('month-font-slider').value = mf;
     document.getElementById('date-font-slider').value = df;
     document.getElementById('weekday-font-slider').value = wf;
-    document.getElementById('cell-todo-font-slider').value = cf;
     applyMonthFontSize(mf);
     applyDateFontSize(df);
     applyWeekdayFontSize(wf);
-    applyCellTodoFontSize(cf);
+    const lf = s.lunarFontSize || Math.max(5, Math.round(df * 0.5));
+    document.getElementById('lunar-font-slider').value = lf;
+    applyLunarFontSize(lf);
     document.getElementById('toggle-ontop').checked = s.alwaysOnTop !== false;
     document.getElementById('toggle-autostart').checked = s.autoStart === true;
     document.getElementById('toggle-titlebar').checked = s.titlebarHidden === true;
-    const cellColor = s.cellTodoColor || '#9a98a0';
-    document.getElementById('cell-todo-color').value = cellColor;
-    document.documentElement.style.setProperty('--cell-todo-color', cellColor);
-    const cellBold = s.cellTodoBold === true;
-    document.getElementById('toggle-cell-todo-bold').checked = cellBold;
-    document.documentElement.style.setProperty('--cell-todo-weight', cellBold ? 'bold' : 'normal');
+    const dotColor = s.todoDotColor || '#c9a96e';
+    document.getElementById('todo-dot-color').value = dotColor;
+    document.documentElement.style.setProperty('--todo-dot-color', dotColor);
+    const dotSize = s.todoDotSize || 5;
+    document.getElementById('todo-dot-size-slider').value = dotSize;
+    applyTodoDotSize(dotSize);
     if (s.titlebarHidden) applyTitlebarHide(true);
-    if (s.todoHidden) {
-      document.getElementById('todo-section').classList.add('collapsed');
-    }
     if (s.memoText) {
       document.getElementById('memo-textarea').value = s.memoText;
     }
@@ -996,6 +874,7 @@ function togglePanel(id) {
 /* --- Mini Mode --- */
 
 let isMiniMode = false;
+let miniFirstHover = false;
 
 async function toggleMiniMode() {
   if (window.electronAPI && window.electronAPI.toggleMiniMode) {
@@ -1033,21 +912,25 @@ async function toggleMiniMode() {
     if (inMini) {
       app.classList.add('mini-mode');
       btn.classList.add('active');
+      miniFirstHover = true;
       updateMiniView();
     } else {
       app.classList.remove('mini-mode');
       btn.classList.remove('active');
+      // Restore mini-view layout styles
+      const miniView = document.getElementById('mini-view');
+      miniView.style.alignItems = '';
+      miniView.style.justifyContent = '';
+      miniView.style.padding = '';
       // Restore calendar view in case detail view was open before mini mode
       document.getElementById('calendar-header').style.display = '';
       document.getElementById('weekday-header').style.display = '';
       document.getElementById('calendar-grid').style.display = '';
-      document.getElementById('todo-section').style.display = '';
       document.getElementById('btn-prev-month').style.display = '';
       document.getElementById('btn-next-month').style.display = '';
       document.getElementById('mini-mode-btn').style.display = '';
       document.getElementById('settings-float-btn').style.display = '';
       renderCalendar();
-      renderTodoList();
     }
     isMiniMode = inMini;
   }
@@ -1067,16 +950,16 @@ function updateMiniView() {
 let detailKey = null;
 
 function openDetailView(y, m, d) {
+  hideDateTooltip();
   selectedDate = { year: y, month: m, day: d };
   detailKey = dateKey(y, m, d);
   closeAllPanels();
   renderCalendar();
   document.getElementById('detail-view').classList.remove('hidden');
-  // Hide calendar navigation and todo section
+  // Hide calendar navigation
   document.getElementById('calendar-header').style.display = 'none';
   document.getElementById('weekday-header').style.display = 'none';
   document.getElementById('calendar-grid').style.display = 'none';
-  document.getElementById('todo-section').style.display = 'none';
   document.getElementById('btn-prev-month').style.display = 'none';
   document.getElementById('btn-next-month').style.display = 'none';
   // Hide floating buttons in detail view
@@ -1094,14 +977,12 @@ function closeDetailView() {
     document.getElementById('calendar-header').style.display = '';
     document.getElementById('weekday-header').style.display = '';
     document.getElementById('calendar-grid').style.display = '';
-    document.getElementById('todo-section').style.display = '';
     document.getElementById('btn-prev-month').style.display = '';
     document.getElementById('btn-next-month').style.display = '';
     // Restore floating buttons
     document.getElementById('mini-mode-btn').style.display = '';
     document.getElementById('settings-float-btn').style.display = '';
     renderCalendar();
-    renderTodoList();
   }, 200);
 }
 
@@ -1240,7 +1121,7 @@ function cancelDetailEdit() {
 
   const list = document.getElementById('detail-todo-list');
   const items = list.querySelectorAll('.todo-item');
-  for (const item of items) items.classList.remove('editing');
+  for (const item of items) item.classList.remove('editing');
 }
 
 /* ================================================================
@@ -1260,7 +1141,6 @@ function init() {
     currentMonth = t.month;
     selectedDate = { year: t.year, month: t.month, day: t.day };
     renderCalendar();
-    renderTodoList();
   });
 
   document.getElementById('settings-float-btn').addEventListener('click', () => {
@@ -1269,6 +1149,13 @@ function init() {
   document.getElementById('btn-settings-close').addEventListener('click', () => {
     closePanel('settings-panel');
   });
+
+  // Window maximize / restore state for border-radius
+  if (window.electronAPI && window.electronAPI.onWindowState) {
+    window.electronAPI.onWindowState((state) => {
+      document.getElementById('app').classList.toggle('maximized', state === 'maximized');
+    });
+  }
 
   // Mini mode
   document.getElementById('mini-mode-btn').addEventListener('click', toggleMiniMode);
@@ -1284,6 +1171,42 @@ function init() {
       miniMouseOrigin = null;
     }
   });
+
+  // Mini mode hover tooltip (independent tooltip window)
+  const miniCalendarIcon = document.getElementById('mini-calendar-icon');
+  miniCalendarIcon.addEventListener('mouseenter', () => {
+    if (miniFirstHover) {
+      miniFirstHover = false;
+      return;
+    }
+    if (window.electronAPI && window.electronAPI.cancelTooltipTimer) {
+      window.electronAPI.cancelTooltipTimer();
+    }
+    const today = getToday();
+    const lunar = solarToLunar(today.year, today.month, today.day);
+    showDateTooltip(miniCalendarIcon, today.year, today.month, today.day, lunar);
+  });
+  miniCalendarIcon.addEventListener('mouseleave', () => {
+    if (window.electronAPI && window.electronAPI.startTooltipTimer) {
+      window.electronAPI.startTooltipTimer();
+    }
+  });
+
+  // Listen for tooltip clicks to open detail view
+  if (window.electronAPI && window.electronAPI.onOpenDetailFromTooltip) {
+    window.electronAPI.onOpenDetailFromTooltip((key) => {
+      hideDateTooltip();
+      if (isMiniMode) {
+        toggleMiniMode().then(() => {
+          const { year, month, day } = parseDateKey(key);
+          openDetailView(year, month, day);
+        });
+      } else {
+        const { year, month, day } = parseDateKey(key);
+        openDetailView(year, month, day);
+      }
+    });
+  }
 
   // Detail view
   document.getElementById('btn-detail-back').addEventListener('click', closeDetailView);
@@ -1354,19 +1277,28 @@ function init() {
       window.electronAPI.saveSettings({ weekdayFontSize: parseInt(e.target.value) });
     }
   });
-  document.getElementById('cell-todo-font-slider').addEventListener('input', (e) => {
-    document.getElementById('cell-todo-font-value').textContent = e.target.value + 'px';
-    applyCellTodoFontSize(parseInt(e.target.value));
+  document.getElementById('lunar-font-slider').addEventListener('input', (e) => {
+    document.getElementById('lunar-font-value').textContent = e.target.value + 'px';
+    applyLunarFontSize(parseInt(e.target.value));
     if (window.electronAPI) {
-      window.electronAPI.saveSettings({ cellTodoFontSize: parseInt(e.target.value) });
+      window.electronAPI.saveSettings({ lunarFontSize: parseInt(e.target.value) });
     }
   });
 
-  document.getElementById('cell-todo-color').addEventListener('input', (e) => {
+  document.getElementById('todo-dot-color').addEventListener('input', (e) => {
     const color = e.target.value;
-    document.documentElement.style.setProperty('--cell-todo-color', color);
+    document.documentElement.style.setProperty('--todo-dot-color', color);
     if (window.electronAPI) {
-      window.electronAPI.saveSettings({ cellTodoColor: color });
+      window.electronAPI.saveSettings({ todoDotColor: color });
+    }
+  });
+
+  document.getElementById('todo-dot-size-slider').addEventListener('input', (e) => {
+    const val = parseInt(e.target.value);
+    document.getElementById('todo-dot-size-value').textContent = val + 'px';
+    applyTodoDotSize(val);
+    if (window.electronAPI) {
+      window.electronAPI.saveSettings({ todoDotSize: val });
     }
   });
 
@@ -1416,14 +1348,6 @@ function init() {
     btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
   });
 
-  document.getElementById('toggle-cell-todo-bold').addEventListener('change', (e) => {
-    const bold = e.target.checked;
-    document.documentElement.style.setProperty('--cell-todo-weight', bold ? 'bold' : 'normal');
-    if (window.electronAPI) {
-      window.electronAPI.saveSettings({ cellTodoBold: bold });
-    }
-  });
-
   document.getElementById('btn-save-settings').addEventListener('click', async () => {
     const settings = {
       bgOpacity: parseInt(document.getElementById('bg-opacity-slider').value) / 100,
@@ -1438,9 +1362,9 @@ function init() {
       monthFontSize: parseInt(document.getElementById('month-font-slider').value),
       dateFontSize: parseInt(document.getElementById('date-font-slider').value),
       weekdayFontSize: parseInt(document.getElementById('weekday-font-slider').value),
-      cellTodoFontSize: parseInt(document.getElementById('cell-todo-font-slider').value),
-      cellTodoColor: document.getElementById('cell-todo-color').value,
-      cellTodoBold: document.getElementById('toggle-cell-todo-bold').checked,
+      lunarFontSize: parseInt(document.getElementById('lunar-font-slider').value),
+      todoDotColor: document.getElementById('todo-dot-color').value,
+      todoDotSize: parseInt(document.getElementById('todo-dot-size-slider').value),
       alwaysOnTop: document.getElementById('toggle-ontop').checked,
       autoStart: document.getElementById('toggle-autostart').checked,
       titlebarHidden: document.getElementById('toggle-titlebar').checked
@@ -1497,23 +1421,12 @@ function init() {
         document.getElementById('calendar-header').style.display = '';
         document.getElementById('weekday-header').style.display = '';
         document.getElementById('calendar-grid').style.display = '';
-        document.getElementById('todo-section').style.display = '';
         document.getElementById('btn-prev-month').style.display = '';
         document.getElementById('btn-next-month').style.display = '';
         document.getElementById('mini-mode-btn').style.display = '';
         document.getElementById('settings-float-btn').style.display = '';
         renderCalendar();
-        renderTodoList();
       }, 100);
-    }
-  });
-
-  document.getElementById('btn-toggle-todo').addEventListener('click', async () => {
-    const section = document.getElementById('todo-section');
-    section.classList.toggle('collapsed');
-    const hidden = section.classList.contains('collapsed');
-    if (window.electronAPI) {
-      await window.electronAPI.saveSettings({ todoHidden: hidden });
     }
   });
 
@@ -1541,60 +1454,9 @@ function init() {
     document.getElementById('close-dialog').classList.add('hidden');
   });
 
-  document.getElementById('btn-add-todo').addEventListener('click', () => {
-    if (!selectedDate) {
-      const t = getToday();
-      selectDate(t.year, t.month, t.day);
-    }
-    const inputRow = document.getElementById('todo-input-row');
-    inputRow.classList.remove('hidden');
-    document.getElementById('todo-input').focus();
-  });
-
-  document.getElementById('btn-save-todo').addEventListener('click', () => {
-    const input = document.getElementById('todo-input');
-    const text = input.value.trim();
-    if (text) {
-      addTodo(text);
-      input.value = '';
-      document.getElementById('todo-input-row').classList.add('hidden');
-    }
-  });
-
-  document.getElementById('btn-cancel-todo').addEventListener('click', () => {
-    document.getElementById('todo-input').value = '';
-    document.getElementById('todo-input-row').classList.add('hidden');
-  });
-
-  document.getElementById('todo-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      document.getElementById('btn-save-todo').click();
-    } else if (e.key === 'Escape') {
-      document.getElementById('btn-cancel-todo').click();
-    }
-  });
-
-  document.getElementById('todo-edit-input').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      document.getElementById('btn-save-edit').click();
-    } else if (e.key === 'Escape') {
-      document.getElementById('btn-cancel-edit').click();
-    }
-  });
-
-  document.getElementById('btn-clear-completed').addEventListener('click', () => {
-    const key = getSelectedDateKey();
-    if (key) clearCompleted(key);
-  });
-
-  document.getElementById('btn-save-edit').addEventListener('click', saveEditTodo);
-
-  document.getElementById('btn-cancel-edit').addEventListener('click', cancelEditTodo);
-
   Promise.all([loadTodos(), loadSettings()]).then(() => {
     selectedDate = { year: today.year, month: today.month, day: today.day };
     renderCalendar();
-    renderTodoList();
   });
 }
 

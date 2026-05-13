@@ -104,20 +104,18 @@
       <span class="slider-value" id="weekday-font-value">10px</span>
     </div>
     <div class="settings-group">
-      <label>框内待办</label>
-      <input type="range" id="cell-todo-font-slider" min="5" max="30" value="7">
-      <span class="slider-value" id="cell-todo-font-value">7px</span>
+      <label>农历</label>
+      <input type="range" id="lunar-font-slider" min="4" max="30" value="7">
+      <span class="slider-value" id="lunar-font-value">7px</span>
     </div>
     <div class="settings-group color-group">
-      <label>待办颜色</label>
-      <input type="color" id="cell-todo-color" value="#9a98a0">
+      <label>圆点颜色</label>
+      <input type="color" id="todo-dot-color" value="#c9a96e">
     </div>
-    <div class="settings-group toggle-group">
-      <label>待办加粗</label>
-      <label class="toggle-switch">
-        <input type="checkbox" id="toggle-cell-todo-bold">
-        <span class="toggle-slider"></span>
-      </label>
+    <div class="settings-group">
+      <label>圆点大小</label>
+      <input type="range" id="todo-dot-size-slider" min="3" max="12" value="5">
+      <span class="slider-value" id="todo-dot-size-value">5px</span>
     </div>
 
     <!-- Toggles -->
@@ -192,7 +190,6 @@
     <div class="title-actions">
       <button class="title-btn" id="btn-memo" title="备忘录">✎</button>
       <button class="title-btn" id="btn-pin" title="固定到桌面">⬇</button>
-      <button class="title-btn" id="btn-toggle-todo" title="显示/隐藏待办栏">☰</button>
       <button class="title-btn" id="btn-maximize" title="最大化/还原">☐</button>
       <button class="title-btn" id="btn-minimize" title="最小化到托盘">─</button>
       <button class="title-btn" id="btn-close" title="关闭">✕</button>
@@ -202,7 +199,7 @@
   <!-- Calendar Header (nav buttons removed→floating) -->
   <div id="calendar-header">
     <div class="month-year">
-      <span id="current-month-year"></span>
+      <span id="current-year"></span><span id="current-month"></span>
       <button id="btn-today" class="today-btn">回到今日</button>
     </div>
   </div>
@@ -218,31 +215,6 @@
 
   <!-- Calendar Grid -->
   <div id="calendar-grid"></div>
-
-  <!-- Selected Date Todo Management Section -->
-  <div id="todo-section">
-    <div class="todo-header">
-      <span id="selected-date-label">选择日期查看待办</span>
-      <div class="todo-header-actions">
-        <span id="todo-count" class="todo-count"></span>
-        <button id="btn-clear-completed" class="clear-btn hidden" title="清除已完成">清除已完成</button>
-        <button id="btn-add-todo" class="add-btn" title="添加待办">+</button>
-      </div>
-    </div>
-    <div id="todo-body">
-      <div id="todo-list"></div>
-      <div id="todo-input-row" class="hidden">
-        <input type="text" id="todo-input" placeholder="输入待办事项...">
-        <button id="btn-save-todo" class="save-btn">✓</button>
-        <button id="btn-cancel-todo" class="cancel-btn">✕</button>
-      </div>
-      <div id="todo-edit-row" class="hidden">
-        <input type="text" id="todo-edit-input">
-        <button id="btn-save-edit" class="save-btn">✓</button>
-        <button id="btn-cancel-edit" class="cancel-btn">✕</button>
-      </div>
-    </div>
-  </div>
 
   <!-- Floating action buttons (top-left corner, always visible) -->
   <button class="float-btn" id="mini-mode-btn" title="迷你模式">⊟</button>

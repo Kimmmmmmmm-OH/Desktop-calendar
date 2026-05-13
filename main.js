@@ -11,6 +11,7 @@ let isQuitting = false;
 let isPinned = false;
 let baseWindowBounds = null; // bounds when no slide panels are open
 let suppressBoundsSave = false; // prevent saving expanded bounds
+let tooltipWindow = null;
 
 function loadSettings() {
   try {
@@ -29,15 +30,15 @@ function loadSettings() {
     x: undefined,
     y: undefined,
     titlebarHidden: false,
-    todoHidden: false,
     bgHue: 240, bgSat: 15, bgLight: 12,
     fgHue: 40, fgSat: 40, fgLight: 62,
     monthFontSize: 17,
     dateFontSize: 14,
     weekdayFontSize: 10,
-    cellTodoFontSize: 7,
-    cellTodoColor: '#9a98a0',
-    cellTodoBold: false,
+    lunarFontSize: 7,
+    todoDotColor: '#c9a96e',
+    todoDotSize: 5,
+    miniBounds: null,
     memoText: '',
     memoFontSize: 14,
     memoTextColor: '#e8e6e3',
@@ -99,8 +100,9 @@ function createWindow() {
     y: winY,
     frame: false,
     transparent: true,
-    backgroundColor: '#1a1a23',
     alwaysOnTop: settings.alwaysOnTop,
+    minWidth: 260,
+    minHeight: 300,
     skipTaskbar: true,
     resizable: true,
     icon: path.join(__dirname, 'assets', 'icon.png'),
@@ -122,6 +124,13 @@ function createWindow() {
     }
   });
 
+  mainWindow.on('maximize', () => {
+    mainWindow.webContents.send('window-state', 'maximized');
+  });
+  mainWindow.on('unmaximize', () => {
+    mainWindow.webContents.send('window-state', 'restored');
+  });
+
   mainWindow.on('resize', () => {
     if (suppressBoundsSave) return;
     const [w, h] = mainWindow.getSize();
@@ -136,9 +145,14 @@ function createWindow() {
   mainWindow.on('move', () => {
     if (suppressBoundsSave) return;
     const [x, y] = mainWindow.getPosition();
-    settings.x = x;
-    settings.y = y;
-    saveSettings(settings);
+    if (preMiniBounds) {
+      settings.miniBounds = { x, y };
+      saveSettings(settings);
+    } else {
+      settings.x = x;
+      settings.y = y;
+      saveSettings(settings);
+    }
   });
 
   return settings;
@@ -216,6 +230,62 @@ function createTray() {
   updateMenu();
 }
 
+/* ================================================================
+   TOOLTIP WINDOW (independent from main window)
+   ================================================================ */
+
+function createTooltipWindow() {
+  tooltipWindow = new BrowserWindow({
+    width: 360,
+    height: 200,
+    frame: false,
+    transparent: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    show: false,
+    resizable: false,
+    focusable: false,
+    hasShadow: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload-tooltip.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  tooltipWindow.setAlwaysOnTop(true, 'screen-saver');
+  tooltipWindow.loadFile(path.join(__dirname, 'renderer', 'tooltip.html'));
+  tooltipWindow.setIgnoreMouseEvents(true);
+
+  tooltipWindow.on('closed', () => {
+    tooltipWindow = null;
+  });
+}
+
+function showTooltipWindow(bounds, data) {
+  if (!tooltipWindow || tooltipWindow.isDestroyed()) {
+    createTooltipWindow();
+  }
+  const doShow = () => {
+    tooltipWindow.webContents.send('tooltip-data', data);
+    tooltipWindow.setBounds({ x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height });
+    tooltipWindow.setIgnoreMouseEvents(false);
+    tooltipWindow.showInactive();
+    tooltipWindow.moveTop();
+  };
+  if (tooltipWindow.webContents.isLoading()) {
+    tooltipWindow.webContents.once('did-finish-load', doShow);
+  } else {
+    doShow();
+  }
+}
+
+function hideTooltipWindow() {
+  if (tooltipWindow && !tooltipWindow.isDestroyed()) {
+    tooltipWindow.hide();
+    tooltipWindow.setIgnoreMouseEvents(true);
+  }
+}
+
 ipcMain.handle('get-settings', () => loadSettings());
 
 ipcMain.handle('save-settings', (_, newSettings) => {
@@ -266,6 +336,63 @@ ipcMain.handle('open-file-dialog', async () => {
   }
 });
 
+ipcMain.handle('show-tooltip', (_, data) => {
+  if (!mainWindow) return false;
+  const [winX, winY] = mainWindow.getPosition();
+  let x = winX + data.anchorRect.right + 12;
+  let y = winY + data.anchorRect.top;
+  const width = 360;
+
+  // Screen boundary checks
+  const currentDisplay = screen.getDisplayNearestPoint({ x: winX, y: winY });
+  const work = currentDisplay.workArea;
+  const pad = 8;
+
+  if (x + width > work.x + work.width) {
+    x = winX + data.anchorRect.left - width - 12;
+  }
+  if (x < work.x + pad) x = work.x + pad;
+  if (y < work.y + pad) y = work.y + pad;
+
+  showTooltipWindow({ x, y, width, height: data.bounds?.height || 200 }, data);
+  return true;
+});
+
+ipcMain.handle('hide-tooltip', () => {
+  hideTooltipWindow();
+  return true;
+});
+
+ipcMain.on('tooltip-clicked', (_, dateKey) => {
+  if (mainWindow) {
+    mainWindow.webContents.send('open-detail-from-tooltip', dateKey);
+  }
+});
+
+ipcMain.on('tooltip-hide-request', () => {
+  hideTooltipWindow();
+});
+
+ipcMain.on('start-tooltip-timer', () => {
+  if (tooltipWindow && !tooltipWindow.isDestroyed()) {
+    tooltipWindow.webContents.send('start-tooltip-timer');
+  }
+});
+
+ipcMain.on('cancel-tooltip-timer', () => {
+  if (tooltipWindow && !tooltipWindow.isDestroyed()) {
+    tooltipWindow.webContents.send('cancel-tooltip-timer');
+  }
+});
+
+ipcMain.on('tooltip-resize', (_, height) => {
+  if (tooltipWindow && !tooltipWindow.isDestroyed()) {
+    const bounds = tooltipWindow.getBounds();
+    const newHeight = Math.min(Math.max(height, 80), 800);
+    tooltipWindow.setBounds({ ...bounds, height: newHeight });
+  }
+});
+
 ipcMain.handle('get-todos', () => {
   try {
     return JSON.parse(fs.readFileSync(TODOS_PATH, 'utf-8'));
@@ -312,6 +439,7 @@ ipcMain.handle('toggle-maximize', () => {
     mainWindow.setBounds(preMaximizeBounds);
     suppressBoundsSave = false;
     preMaximizeBounds = null;
+    mainWindow.webContents.send('window-state', 'restored');
     return false;
   } else {
     // Save current bounds and maximize to the display the window is on
@@ -321,6 +449,7 @@ ipcMain.handle('toggle-maximize', () => {
     suppressBoundsSave = true;
     mainWindow.setBounds({ x, y, width, height });
     suppressBoundsSave = false;
+    mainWindow.webContents.send('window-state', 'maximized');
     return true;
   }
 });
@@ -391,25 +520,72 @@ ipcMain.handle('toggle-mini-mode', () => {
   if (!mainWindow) return false;
 
   if (preMiniBounds) {
-    // Exit mini mode — restore previous bounds
+    // Exit mini mode — remember mini position, then restore previous bounds
+    const cur = mainWindow.getBounds();
+    const s = loadSettings();
+    s.miniBounds = { x: cur.x, y: cur.y };
+    saveSettings(s);
+
     suppressBoundsSave = true;
+    mainWindow.setMinimumSize(260, 300);
     mainWindow.setBounds(preMiniBounds);
     mainWindow.setResizable(true);
     mainWindow.setMovable(true);
     suppressBoundsSave = false;
     preMiniBounds = null;
+    miniExpandedBounds = null;
     return false;
   } else {
     // Enter mini mode — save current bounds, shrink to mini size
     preMiniBounds = mainWindow.getBounds();
     const miniSize = 80;
-    const newX = preMiniBounds.x + Math.round((preMiniBounds.width - miniSize) / 2);
-    const newY = preMiniBounds.y + Math.round((preMiniBounds.height - miniSize) / 2);
+    const s = loadSettings();
+    let newX, newY;
+    if (s.miniBounds) {
+      newX = s.miniBounds.x;
+      newY = s.miniBounds.y;
+    } else {
+      newX = preMiniBounds.x + Math.round((preMiniBounds.width - miniSize) / 2);
+      newY = preMiniBounds.y + Math.round((preMiniBounds.height - miniSize) / 2);
+    }
     suppressBoundsSave = true;
+    mainWindow.setMinimumSize(miniSize, miniSize);
     mainWindow.setResizable(false);
+    mainWindow.setMovable(true);
     mainWindow.setBounds({ x: newX, y: newY, width: miniSize, height: miniSize });
     suppressBoundsSave = false;
     return true;
+  }
+});
+
+let miniExpandedBounds = null;
+
+ipcMain.handle('set-mini-expanded', (_, expanded) => {
+  if (!mainWindow) return false;
+  if (!preMiniBounds) return false;
+
+  if (expanded) {
+    if (miniExpandedBounds) return true;
+    const currentBounds = mainWindow.getBounds();
+    miniExpandedBounds = { ...currentBounds };
+    const expandWidth = 520;
+    const expandHeight = 480;
+    suppressBoundsSave = true;
+    mainWindow.setBounds({
+      x: currentBounds.x,
+      y: currentBounds.y,
+      width: expandWidth,
+      height: expandHeight
+    });
+    suppressBoundsSave = false;
+    return true;
+  } else {
+    if (!miniExpandedBounds) return false;
+    suppressBoundsSave = true;
+    mainWindow.setBounds(miniExpandedBounds);
+    suppressBoundsSave = false;
+    miniExpandedBounds = null;
+    return false;
   }
 });
 
