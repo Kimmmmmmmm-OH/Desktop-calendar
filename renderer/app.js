@@ -206,12 +206,12 @@ function applyColors(bgH, bgS, bgL, fgH, fgS, fgL) {
 
   const isLight = bgL > 50;
   if (isLight) {
-    root.style.setProperty('--text-primary', '#2a2a38');
-    root.style.setProperty('--text-secondary', '#5a5868');
-    root.style.setProperty('--text-muted', '#8a8898');
-    root.style.setProperty('--border', 'rgba(0,0,0,0.08)');
-    root.style.setProperty('--border-strong', 'rgba(0,0,0,0.14)');
-    root.style.setProperty('--shadow', '0 2px 20px rgba(0,0,0,0.12)');
+    root.style.setProperty('--text-primary', '#111111');
+    root.style.setProperty('--text-secondary', '#555555');
+    root.style.setProperty('--text-muted', '#888888');
+    root.style.setProperty('--border', 'rgba(0,0,0,0.06)');
+    root.style.setProperty('--border-strong', 'rgba(0,0,0,0.1)');
+    root.style.setProperty('--shadow', '0 2px 12px rgba(0,0,0,0.06)');
   } else {
     root.style.setProperty('--text-primary', '#e8e6e3');
     root.style.setProperty('--text-secondary', '#9a98a0');
@@ -223,12 +223,12 @@ function applyColors(bgH, bgS, bgL, fgH, fgS, fgL) {
 }
 
 const PRESETS = {
+  default: { bgH: 0, bgS: 0, bgL: 96, fgH: 0, fgS: 0, fgL: 12 },
   gold:   { bgH: 240, bgS: 15, bgL: 12, fgH: 40, fgS: 40, fgL: 62 },
   blue:   { bgH: 215, bgS: 20, bgL: 12, fgH: 205, fgS: 40, fgL: 58 },
   purple: { bgH: 260, bgS: 18, bgL: 12, fgH: 270, fgS: 35, fgL: 60 },
   green:  { bgH: 160, bgS: 15, bgL: 12, fgH: 140, fgS: 30, fgL: 52 },
-  light:  { bgH: 240, bgS: 10, bgL: 92, fgH: 220, fgS: 50, fgL: 45 },
-  default: { bgH: 240, bgS: 15, bgL: 12, fgH: 40, fgS: 40, fgL: 62 }
+  light:  { bgH: 0, bgS: 0, bgL: 98, fgH: 0, fgS: 0, fgL: 18 }
 };
 
 const SYSTEM_FONTS = [
@@ -249,6 +249,83 @@ function applyPreset(name) {
   document.getElementById('fg-light-slider').value = p.fgL;
   updateAllSliderLabels();
   applyColors(p.bgH, p.bgS, p.bgL, p.fgH, p.fgS, p.fgL);
+}
+
+async function resetAllSettings() {
+  // 1. 颜色预设（极简白）
+  applyPreset('default');
+
+  // 2. 背景不透明度
+  document.getElementById('bg-opacity-slider').value = 92;
+  document.getElementById('bg-opacity-value').textContent = '92%';
+
+  // 3. 字体不透明度
+  document.getElementById('text-opacity-slider').value = 100;
+  applyTextOpacity(100);
+
+  // 4. 字体
+  populateFontSelect('Microsoft YaHei');
+  applyFontFamily('Microsoft YaHei');
+
+  // 5. 字号
+  document.getElementById('month-font-slider').value = 72;
+  applyMonthFontSize(72);
+  document.getElementById('year-font-slider').value = 18;
+  applyYearFontSize(18);
+  document.getElementById('date-font-slider').value = 22;
+  applyDateFontSize(22);
+  document.getElementById('weekday-font-slider').value = 13;
+  applyWeekdayFontSize(13);
+  document.getElementById('lunar-font-slider').value = 12;
+  applyLunarFontSize(12);
+
+  // 6. 待办圆点
+  document.getElementById('todo-dot-color').value = '#111111';
+  document.documentElement.style.setProperty('--todo-dot-color', '#111111');
+  document.getElementById('todo-dot-size-slider').value = 5;
+  applyTodoDotSize(5);
+
+  // 7. 开关状态
+  document.getElementById('toggle-ontop').checked = true;
+  document.getElementById('toggle-autostart').checked = false;
+  document.getElementById('toggle-titlebar').checked = false;
+  applyTitlebarHide(false);
+
+  // 8. 背景图
+  applyBackgroundImage('');
+  document.getElementById('btn-clear-bg-image').classList.add('hidden');
+
+  // 9. 备忘录
+  document.getElementById('memo-font-slider').value = 14;
+  document.getElementById('memo-font-value').textContent = '14px';
+  document.getElementById('memo-textarea').style.fontSize = '14px';
+  document.getElementById('memo-text-color').value = '#111111';
+  document.getElementById('memo-textarea').style.color = '#111111';
+
+  // 10. 保存所有设置
+  if (window.electronAPI) {
+    await window.electronAPI.setAutoStart(false);
+    await window.electronAPI.saveSettings({
+      bgOpacity: 0.92,
+      textOpacity: 1.0,
+      fontFamily: 'Microsoft YaHei',
+      bgHue: 0, bgSat: 0, bgLight: 96,
+      fgHue: 0, fgSat: 0, fgLight: 12,
+      monthFontSize: 72,
+      yearFontSize: 18,
+      dateFontSize: 22,
+      weekdayFontSize: 13,
+      lunarFontSize: 12,
+      todoDotColor: '#111111',
+      todoDotSize: 5,
+      alwaysOnTop: true,
+      autoStart: false,
+      titlebarHidden: false,
+      backgroundImage: '',
+      memoFontSize: 14,
+      memoTextColor: '#111111'
+    });
+  }
 }
 
 function updateAllSliderLabels() {
@@ -329,10 +406,15 @@ function isToday(y, m, d) {
   return y === t.year && m === t.month && d === t.day;
 }
 
+const MONTH_NAMES_EN = [
+  'JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE',
+  'JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'
+];
+
 function renderCalendar() {
   const grid = document.getElementById('calendar-grid');
-  document.getElementById('current-year').textContent = currentYear + '年';
-  document.getElementById('current-month').textContent = currentMonth + '月';
+  document.getElementById('current-year').textContent = currentYear;
+  document.getElementById('current-month').textContent = MONTH_NAMES_EN[currentMonth - 1];
 
   grid.innerHTML = '';
 
@@ -464,39 +546,83 @@ function renderCalendar() {
   }
 }
 
-async function showDateTooltip(anchorEl, y, m, d, lunar) {
-  if (!window.electronAPI || !window.electronAPI.showTooltip) return;
+/* --------------- Inline DOM Tooltip --------------- */
+let tooltipHideTimer = null;
+let currentTooltipKey = null;
+
+function showDateTooltip(anchorEl, y, m, d, lunar) {
   const holiday = getLunarHoliday(lunar) || getSolarHoliday(m, d);
   const header = formatDateCN(y, m, d) + (holiday ? ' · ' + holiday : '');
   const key = dateKey(y, m, d);
+  currentTooltipKey = key;
   const dayTodos = todos[key] || [];
-  const items = dayTodos.map(t => ({ text: t.text, completed: t.completed }));
 
-  const root = getComputedStyle(document.documentElement);
-  const theme = {
-    bg: root.getPropertyValue('--bg-secondary').trim() || 'hsl(240, 15%, 16%)',
-    border: root.getPropertyValue('--border-strong').trim() || 'rgba(255,255,255,0.14)',
-    borderLight: 'rgba(255,255,255,0.08)',
-    accent: root.getPropertyValue('--accent').trim() || 'hsl(40, 40%, 62%)',
-    text: root.getPropertyValue('--text-primary').trim() || '#e8e6e3',
-    textMuted: root.getPropertyValue('--text-muted').trim() || '#6a6870',
-    accentGreen: root.getPropertyValue('--accent-green').trim() || '#6b9e6d'
-  };
+  const tooltip = document.getElementById('date-tooltip');
+  const tooltipHeader = tooltip.querySelector('.date-tooltip-header');
+  const tooltipList = tooltip.querySelector('.date-tooltip-list');
 
-  const anchorRect = anchorEl.getBoundingClientRect();
-  await window.electronAPI.showTooltip({
-    header,
-    items,
-    theme,
-    dateKey: key,
-    anchorRect: { left: anchorRect.left, right: anchorRect.right, top: anchorRect.top, bottom: anchorRect.bottom, width: anchorRect.width, height: anchorRect.height }
-  });
+  tooltipHeader.textContent = header;
+  tooltipList.innerHTML = '';
+
+  if (dayTodos.length === 0) {
+    tooltipList.innerHTML = '<div class="date-tooltip-empty">暂无待办事项</div>';
+  } else {
+    for (const t of dayTodos) {
+      const el = document.createElement('div');
+      el.className = 'date-tooltip-item' + (t.completed ? ' completed' : '');
+      el.textContent = t.text;
+      tooltipList.appendChild(el);
+    }
+  }
+
+  // Position tooltip near the cell, using cell center as transform-origin
+  const appRect = document.getElementById('app').getBoundingClientRect();
+  const cellRect = anchorEl.getBoundingClientRect();
+  const relX = cellRect.left - appRect.left;
+  const relY = cellRect.top - appRect.top;
+
+  // Default placement: to the right of the cell
+  let left = relX + cellRect.width + 8;
+  let top = relY;
+
+  // Boundary checks within the app container
+  const tooltipW = 220;
+  const tooltipH = Math.min(180, 30 + dayTodos.length * 22);
+  if (left + tooltipW > appRect.width - 8) {
+    left = relX - tooltipW - 8;
+  }
+  if (top + tooltipH > appRect.height - 8) {
+    top = appRect.height - tooltipH - 8;
+  }
+  if (top < 8) top = 8;
+  if (left < 8) left = 8;
+
+  // Set transform-origin to the cell center so it appears to grow from the cell
+  const originX = relX + cellRect.width / 2 - left;
+  const originY = relY + cellRect.height / 2 - top;
+  tooltip.style.transformOrigin = `${originX}px ${originY}px`;
+  tooltip.style.left = left + 'px';
+  tooltip.style.top = top + 'px';
+
+  tooltip.classList.remove('hidden');
+  // Force reflow
+  void tooltip.offsetWidth;
+  tooltip.classList.add('visible');
+
+  if (tooltipHideTimer) {
+    clearTimeout(tooltipHideTimer);
+    tooltipHideTimer = null;
+  }
 }
 
 function hideDateTooltip() {
-  if (window.electronAPI && window.electronAPI.hideTooltip) {
-    window.electronAPI.hideTooltip();
-  }
+  const tooltip = document.getElementById('date-tooltip');
+  if (!tooltip) return;
+  tooltip.classList.remove('visible');
+  tooltipHideTimer = setTimeout(() => {
+    tooltip.classList.add('hidden');
+    currentTooltipKey = null;
+  }, 250);
 }
 
 function navigateMonth(delta) {
@@ -598,6 +724,11 @@ function applyMonthFontSize(px) {
   document.getElementById('month-font-value').textContent = px + 'px';
 }
 
+function applyYearFontSize(px) {
+  document.documentElement.style.setProperty('--year-font-size', px + 'px');
+  document.getElementById('year-font-value').textContent = px + 'px';
+}
+
 function applyDateFontSize(px) {
   document.documentElement.style.setProperty('--date-font-size', px + 'px');
   document.getElementById('date-font-value').textContent = px + 'px';
@@ -644,12 +775,12 @@ async function loadSettings() {
       applyBackgroundImage(bgImage);
       document.getElementById('btn-clear-bg-image').classList.remove('hidden');
     }
-    const bgH = s.bgHue !== undefined ? s.bgHue : 240;
-    const bgS = s.bgSat !== undefined ? s.bgSat : 15;
-    const bgL = s.bgLight !== undefined ? s.bgLight : 12;
-    const fgH = s.fgHue !== undefined ? s.fgHue : 40;
-    const fgS = s.fgSat !== undefined ? s.fgSat : 40;
-    const fgL = s.fgLight !== undefined ? s.fgLight : 62;
+    const bgH = s.bgHue !== undefined ? s.bgHue : 0;
+    const bgS = s.bgSat !== undefined ? s.bgSat : 0;
+    const bgL = s.bgLight !== undefined ? s.bgLight : 96;
+    const fgH = s.fgHue !== undefined ? s.fgHue : 0;
+    const fgS = s.fgSat !== undefined ? s.fgSat : 0;
+    const fgL = s.fgLight !== undefined ? s.fgLight : 12;
     document.getElementById('bg-hue-slider').value = bgH;
     document.getElementById('bg-sat-slider').value = bgS;
     document.getElementById('bg-light-slider').value = bgL;
@@ -658,22 +789,25 @@ async function loadSettings() {
     document.getElementById('fg-light-slider').value = fgL;
     updateAllSliderLabels();
     applyColors(bgH, bgS, bgL, fgH, fgS, fgL);
-    const mf = s.monthFontSize || 17;
-    const df = s.dateFontSize || 14;
-    const wf = s.weekdayFontSize || 10;
+    const mf = s.monthFontSize || 72;
+    const yf = s.yearFontSize || 18;
+    const df = s.dateFontSize || 22;
+    const wf = s.weekdayFontSize || 13;
     document.getElementById('month-font-slider').value = mf;
+    document.getElementById('year-font-slider').value = yf;
     document.getElementById('date-font-slider').value = df;
     document.getElementById('weekday-font-slider').value = wf;
     applyMonthFontSize(mf);
+    applyYearFontSize(yf);
     applyDateFontSize(df);
     applyWeekdayFontSize(wf);
-    const lf = s.lunarFontSize || Math.max(5, Math.round(df * 0.5));
+    const lf = s.lunarFontSize || Math.max(10, Math.round(df * 0.55));
     document.getElementById('lunar-font-slider').value = lf;
     applyLunarFontSize(lf);
     document.getElementById('toggle-ontop').checked = s.alwaysOnTop !== false;
     document.getElementById('toggle-autostart').checked = s.autoStart === true;
     document.getElementById('toggle-titlebar').checked = s.titlebarHidden === true;
-    const dotColor = s.todoDotColor || '#c9a96e';
+    const dotColor = s.todoDotColor || '#111111';
     document.getElementById('todo-dot-color').value = dotColor;
     document.documentElement.style.setProperty('--todo-dot-color', dotColor);
     const dotSize = s.todoDotSize || 5;
@@ -687,7 +821,7 @@ async function loadSettings() {
     document.getElementById('memo-font-slider').value = mfs;
     document.getElementById('memo-font-value').textContent = mfs + 'px';
     document.getElementById('memo-textarea').style.fontSize = mfs + 'px';
-    const memoColor = s.memoTextColor || '#e8e6e3';
+    const memoColor = s.memoTextColor || '#111111';
     document.getElementById('memo-text-color').value = memoColor;
     document.getElementById('memo-textarea').style.color = memoColor;
     if (s.isPinned) {
@@ -774,6 +908,14 @@ async function updateMonthFontSize(val) {
   applyMonthFontSize(px);
   if (window.electronAPI) {
     await window.electronAPI.saveSettings({ monthFontSize: px });
+  }
+}
+
+async function updateYearFontSize(val) {
+  const px = parseInt(val);
+  applyYearFontSize(px);
+  if (window.electronAPI) {
+    await window.electronAPI.saveSettings({ yearFontSize: px });
   }
 }
 
@@ -913,15 +1055,31 @@ async function toggleMiniMode() {
       app.classList.add('mini-mode');
       btn.classList.add('active');
       miniFirstHover = true;
+      // Ensure mini view is visible and preview state is reset
+      const miniView = document.getElementById('mini-view');
+      miniView.classList.remove('hidden');
+      miniView.style.display = 'flex';
+      const icon = document.getElementById('mini-calendar-icon');
+      icon.classList.remove('expanded');
+      app.classList.remove('mini-expanded');
       updateMiniView();
     } else {
       app.classList.remove('mini-mode');
       btn.classList.remove('active');
-      // Restore mini-view layout styles
+      // Restore mini-view layout styles and hide it
       const miniView = document.getElementById('mini-view');
+      miniView.classList.add('hidden');
+      miniView.style.display = 'none';
       miniView.style.alignItems = '';
       miniView.style.justifyContent = '';
       miniView.style.padding = '';
+      // Collapse any expanded preview state
+      const icon = document.getElementById('mini-calendar-icon');
+      icon.classList.remove('expanded');
+      app.classList.remove('mini-expanded');
+      // Clear preview list to prevent layout leakage on next entry
+      const listEl = icon.querySelector('.mini-preview-list');
+      if (listEl) listEl.innerHTML = '';
       // Restore calendar view in case detail view was open before mini mode
       document.getElementById('calendar-header').style.display = '';
       document.getElementById('weekday-header').style.display = '';
@@ -940,9 +1098,72 @@ function updateMiniView() {
   const today = getToday();
   const weekdays = ['日','一','二','三','四','五','六'];
   const d = new Date(today.year, today.month - 1, today.day);
-  document.getElementById('mini-month').textContent = today.month + '月';
+  document.getElementById('mini-month').textContent = MONTH_NAMES_EN[today.month - 1].slice(0, 3);
   document.getElementById('mini-day').textContent = today.day;
   document.getElementById('mini-weekday').textContent = '周' + weekdays[d.getDay()];
+}
+
+function expandMiniPreview() {
+  const icon = document.getElementById('mini-calendar-icon');
+  const today = getToday();
+  const lunar = solarToLunar(today.year, today.month, today.day);
+  const key = dateKey(today.year, today.month, today.day);
+  const dayTodos = todos[key] || [];
+  const holiday = getLunarHoliday(lunar) || getSolarHoliday(today.month, today.day);
+  const lunarDisplay = getLunarDateDisplay(lunar);
+
+  // Populate subheader: weekday + lunar date + holiday
+  const weekdays = ['周日','周一','周二','周三','周四','周五','周六'];
+  const d = new Date(today.year, today.month - 1, today.day);
+  const subEl = icon.querySelector('.mini-preview-subheader');
+  const parts = [weekdays[d.getDay()], lunarDisplay];
+  if (holiday) parts.push(holiday);
+  subEl.textContent = parts.join(' · ');
+
+  // Populate preview list
+  const listEl = icon.querySelector('.mini-preview-list');
+  listEl.innerHTML = '';
+  if (dayTodos.length === 0) {
+    listEl.innerHTML = '<div class="mini-preview-empty">今日暂无待办<br>点击此处添加</div>';
+  } else {
+    const sorted = [...dayTodos].sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? 1 : -1;
+      return b.createdAt - a.createdAt;
+    });
+    for (const t of sorted) {
+      const item = document.createElement('div');
+      item.className = 'mini-preview-item' + (t.completed ? ' completed' : '');
+      item.textContent = t.text;
+      listEl.appendChild(item);
+    }
+  }
+
+  // Expand window to fit preview content, then let icon fill it
+  if (window.electronAPI && window.electronAPI.setMiniExpanded) {
+    window.electronAPI.setMiniExpanded({ expanded: true, width: 296, height: 420 });
+  }
+
+  // Let icon become the window itself — app recedes
+  document.getElementById('app').classList.add('mini-expanded');
+  icon.classList.add('expanded');
+}
+
+function collapseMiniPreview() {
+  const icon = document.getElementById('mini-calendar-icon');
+  icon.classList.remove('expanded');
+
+  // Wait for CSS shrink animation to finish, then restore app frame + shrink window
+  setTimeout(() => {
+    document.getElementById('app').classList.remove('mini-expanded');
+    if (window.electronAPI && window.electronAPI.setMiniExpanded) {
+      window.electronAPI.setMiniExpanded({ expanded: false });
+    }
+    // Clear preview content after collapse so it doesn't leak into next mini-mode entry
+    const listEl = icon.querySelector('.mini-preview-list');
+    if (listEl) listEl.innerHTML = '';
+    const subEl = icon.querySelector('.mini-preview-subheader');
+    if (subEl) subEl.textContent = '';
+  }, 420);
 }
 
 /* --- Detail View --- */
@@ -1001,8 +1222,8 @@ function renderDetailTodos() {
   dateLabel.textContent = formatDateCN(selectedDate.year, selectedDate.month, selectedDate.day);
   const holidayLabel = getLunarHoliday(lunar) || getSolarHoliday(selectedDate.month, selectedDate.day);
   lunarLabel.textContent = holidayLabel || getLunarDateDisplay(lunar);
-  if (holidayLabel) lunarLabel.style.color = 'var(--accent-red)';
-  else lunarLabel.style.color = '';
+  if (holidayLabel) lunarLabel.style.fontWeight = '600';
+  else lunarLabel.style.fontWeight = '';
 
   const key = getSelectedDateKey();
   const dayTodos = todos[key] || [];
@@ -1159,54 +1380,128 @@ function init() {
 
   // Mini mode
   document.getElementById('mini-mode-btn').addEventListener('click', toggleMiniMode);
-  // Mini view click vs drag detection (click event won't fire with -webkit-app-region:drag)
-  let miniMouseOrigin = null;
+  // Mini view drag logic — JavaScript-driven so the whole mini window is draggable
+  const miniDragState = {
+    active: false,
+    hasMoved: false,
+    startX: 0,
+    startY: 0,
+    lastX: 0,
+    lastY: 0,
+    suppressClick: false
+  };
   const miniView = document.getElementById('mini-view');
-  miniView.addEventListener('mousedown', (e) => { miniMouseOrigin = { x: e.screenX, y: e.screenY }; });
-  miniView.addEventListener('mouseup', (e) => {
-    if (miniMouseOrigin) {
-      const dx = e.screenX - miniMouseOrigin.x;
-      const dy = e.screenY - miniMouseOrigin.y;
-      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) toggleMiniMode();
-      miniMouseOrigin = null;
+  miniView.addEventListener('mousedown', (e) => {
+    if (!isMiniMode) return;
+    if (e.button !== 0) return;
+    miniDragState.active = true;
+    miniDragState.hasMoved = false;
+    miniDragState.startX = e.screenX;
+    miniDragState.startY = e.screenY;
+    miniDragState.lastX = e.screenX;
+    miniDragState.lastY = e.screenY;
+    miniDragState.suppressClick = false;
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!miniDragState.active) return;
+    const dx = e.screenX - miniDragState.startX;
+    const dy = e.screenY - miniDragState.startY;
+    if (!miniDragState.hasMoved) {
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+        miniDragState.hasMoved = true;
+      } else {
+        return;
+      }
+    }
+    const moveX = e.screenX - miniDragState.lastX;
+    const moveY = e.screenY - miniDragState.lastY;
+    miniDragState.lastX = e.screenX;
+    miniDragState.lastY = e.screenY;
+    if (window.electronAPI && window.electronAPI.moveWindowBy) {
+      window.electronAPI.moveWindowBy(Math.round(moveX), Math.round(moveY));
     }
   });
+  window.addEventListener('mouseup', () => {
+    if (!miniDragState.active) return;
+    if (miniDragState.hasMoved) {
+      miniDragState.suppressClick = true;
+    } else {
+      // Treat as a click: toggle mini mode when clicking the unexpanded icon
+      const icon = document.getElementById('mini-calendar-icon');
+      if (!icon.classList.contains('expanded')) {
+        toggleMiniMode();
+      }
+    }
+    miniDragState.active = false;
+  });
+  // Capture click to suppress it after a drag
+  miniView.addEventListener('click', (e) => {
+    if (miniDragState.suppressClick) {
+      e.stopPropagation();
+      e.preventDefault();
+      miniDragState.suppressClick = false;
+    }
+  }, true);
 
-  // Mini mode hover tooltip (independent tooltip window)
+  // Mini mode — expand icon into preview on hover
+  let miniExpandTimer = null;
+  let miniCollapseTimer = null;
   const miniCalendarIcon = document.getElementById('mini-calendar-icon');
   miniCalendarIcon.addEventListener('mouseenter', () => {
     if (miniFirstHover) {
       miniFirstHover = false;
       return;
     }
-    if (window.electronAPI && window.electronAPI.cancelTooltipTimer) {
-      window.electronAPI.cancelTooltipTimer();
-    }
-    const today = getToday();
-    const lunar = solarToLunar(today.year, today.month, today.day);
-    showDateTooltip(miniCalendarIcon, today.year, today.month, today.day, lunar);
+    if (miniCollapseTimer) { clearTimeout(miniCollapseTimer); miniCollapseTimer = null; }
+    if (miniCalendarIcon.classList.contains('expanded')) return;
+    miniExpandTimer = setTimeout(() => {
+      expandMiniPreview();
+      miniExpandTimer = null;
+    }, 1000);
   });
   miniCalendarIcon.addEventListener('mouseleave', () => {
-    if (window.electronAPI && window.electronAPI.startTooltipTimer) {
-      window.electronAPI.startTooltipTimer();
-    }
+    if (miniExpandTimer) { clearTimeout(miniExpandTimer); miniExpandTimer = null; }
+    if (!miniCalendarIcon.classList.contains('expanded')) return;
+    miniCollapseTimer = setTimeout(() => {
+      if (miniDragState.active) return;
+      collapseMiniPreview();
+      miniCollapseTimer = null;
+    }, 3000);
   });
 
-  // Listen for tooltip clicks to open detail view
-  if (window.electronAPI && window.electronAPI.onOpenDetailFromTooltip) {
-    window.electronAPI.onOpenDetailFromTooltip((key) => {
-      hideDateTooltip();
-      if (isMiniMode) {
-        toggleMiniMode().then(() => {
-          const { year, month, day } = parseDateKey(key);
-          openDetailView(year, month, day);
-        });
-      } else {
+  // Mini preview click → open detail view for today
+  miniCalendarIcon.addEventListener('click', (e) => {
+    if (!miniCalendarIcon.classList.contains('expanded')) return;
+    e.stopPropagation();
+    collapseMiniPreview();
+    const today = getToday();
+    toggleMiniMode().then(() => {
+      openDetailView(today.year, today.month, today.day);
+    });
+  });
+
+  // Listen for inline tooltip clicks to open detail view
+  const dateTooltipEl = document.getElementById('date-tooltip');
+  dateTooltipEl.addEventListener('click', () => {
+    const key = currentTooltipKey;
+    if (!key) return;
+    hideDateTooltip();
+    if (isMiniMode) {
+      toggleMiniMode().then(() => {
         const { year, month, day } = parseDateKey(key);
         openDetailView(year, month, day);
-      }
-    });
-  }
+      });
+    } else {
+      const { year, month, day } = parseDateKey(key);
+      openDetailView(year, month, day);
+    }
+  });
+  dateTooltipEl.addEventListener('mouseenter', () => {
+    if (tooltipHideTimer) { clearTimeout(tooltipHideTimer); tooltipHideTimer = null; }
+  });
+  dateTooltipEl.addEventListener('mouseleave', () => {
+    hideDateTooltip();
+  });
 
   // Detail view
   document.getElementById('btn-detail-back').addEventListener('click', closeDetailView);
@@ -1265,6 +1560,10 @@ function init() {
   document.getElementById('month-font-slider').addEventListener('input', (e) => {
     document.getElementById('month-font-value').textContent = e.target.value + 'px';
     updateMonthFontSize(parseInt(e.target.value));
+  });
+  document.getElementById('year-font-slider').addEventListener('input', (e) => {
+    document.getElementById('year-font-value').textContent = e.target.value + 'px';
+    updateYearFontSize(parseInt(e.target.value));
   });
   document.getElementById('date-font-slider').addEventListener('input', (e) => {
     document.getElementById('date-font-value').textContent = e.target.value + 'px';
@@ -1345,7 +1644,11 @@ function init() {
   }
 
   document.querySelectorAll('.preset-btn').forEach(btn => {
-    btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+    if (btn.classList.contains('preset-reset')) {
+      btn.addEventListener('click', resetAllSettings);
+    } else {
+      btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+    }
   });
 
   document.getElementById('btn-save-settings').addEventListener('click', async () => {
@@ -1360,6 +1663,7 @@ function init() {
       fgSat: parseInt(document.getElementById('fg-sat-slider').value),
       fgLight: parseInt(document.getElementById('fg-light-slider').value),
       monthFontSize: parseInt(document.getElementById('month-font-slider').value),
+      yearFontSize: parseInt(document.getElementById('year-font-slider').value),
       dateFontSize: parseInt(document.getElementById('date-font-slider').value),
       weekdayFontSize: parseInt(document.getElementById('weekday-font-slider').value),
       lunarFontSize: parseInt(document.getElementById('lunar-font-slider').value),

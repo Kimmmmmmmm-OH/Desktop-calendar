@@ -4,6 +4,7 @@ const fs = require('fs');
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 const TODOS_PATH = path.join(app.getPath('userData'), 'todos.json');
+const MIN_WINDOW_SIZE = 800;
 
 let mainWindow = null;
 let tray = null;
@@ -25,23 +26,24 @@ function loadSettings() {
     backgroundImage: '',
     alwaysOnTop: true,
     autoStart: false,
-    width: 380,
-    height: 620,
+    width: MIN_WINDOW_SIZE,
+    height: MIN_WINDOW_SIZE,
     x: undefined,
     y: undefined,
     titlebarHidden: false,
-    bgHue: 240, bgSat: 15, bgLight: 12,
-    fgHue: 40, fgSat: 40, fgLight: 62,
-    monthFontSize: 17,
-    dateFontSize: 14,
-    weekdayFontSize: 10,
-    lunarFontSize: 7,
-    todoDotColor: '#c9a96e',
+    bgHue: 0, bgSat: 0, bgLight: 96,
+    fgHue: 0, fgSat: 0, fgLight: 12,
+    monthFontSize: 72,
+    yearFontSize: 18,
+    dateFontSize: 22,
+    weekdayFontSize: 13,
+    lunarFontSize: 12,
+    todoDotColor: '#111111',
     todoDotSize: 5,
     miniBounds: null,
     memoText: '',
     memoFontSize: 14,
-    memoTextColor: '#e8e6e3',
+    memoTextColor: '#111111',
     isPinned: false
   };
 }
@@ -50,6 +52,12 @@ function saveSettings(settings) {
   try {
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
   } catch (e) { /* ignore */ }
+}
+
+const LOG_PATH = path.join(app.getPath('userData'), 'debug.log');
+function debugLog(...args) {
+  const line = `[${new Date().toISOString()}] ` + args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') + '\n';
+  fs.appendFile(LOG_PATH, line, 'utf-8', () => {});
 }
 
 function getStartupPath() {
@@ -65,10 +73,10 @@ function setAutoStart(enable) {
       ? process.argv[1] : '';
     const vbs = `
 Set ws = WScript.CreateObject("WScript.Shell")
-Set shortcut = ws.CreateShortcut("${shortcutPath.replace(/\\/g, '\\\\')}")
-shortcut.TargetPath = "${exePath.replace(/\\/g, '\\\\')}"
-shortcut.Arguments = "${args}"
-shortcut.WorkingDirectory = "${__dirname.replace(/\\/g, '\\\\')}"
+Set shortcut = ws.CreateShortcut(${JSON.stringify(shortcutPath)})
+shortcut.TargetPath = ${JSON.stringify(exePath)}
+shortcut.Arguments = ${JSON.stringify(args)}
+shortcut.WorkingDirectory = ${JSON.stringify(__dirname)}
 shortcut.Save()
     `;
     const tmpPath = path.join(app.getPath('temp'), 'startup_shortcut.vbs');
@@ -88,10 +96,14 @@ function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width: screenW, height: screenH } = primaryDisplay.workAreaSize;
 
-  const winW = settings.width || 380;
-  const winH = settings.height || 620;
-  const winX = settings.x !== undefined ? settings.x : screenW - winW - 40;
-  const winY = settings.y !== undefined ? settings.y : Math.round((screenH - winH) / 2);
+  const winW = Math.max(settings.width || MIN_WINDOW_SIZE, MIN_WINDOW_SIZE);
+  const winH = Math.max(settings.height || MIN_WINDOW_SIZE, MIN_WINDOW_SIZE);
+  const winX = settings.x !== undefined
+    ? Math.max(0, Math.min(settings.x, screenW - winW))
+    : Math.max(0, screenW - winW - 40);
+  const winY = settings.y !== undefined
+    ? Math.max(0, Math.min(settings.y, screenH - winH))
+    : Math.round((screenH - winH) / 2);
 
   mainWindow = new BrowserWindow({
     width: winW,
@@ -101,8 +113,8 @@ function createWindow() {
     frame: false,
     transparent: true,
     alwaysOnTop: settings.alwaysOnTop,
-    minWidth: 260,
-    minHeight: 300,
+    minWidth: MIN_WINDOW_SIZE,
+    minHeight: MIN_WINDOW_SIZE,
     skipTaskbar: true,
     resizable: true,
     icon: path.join(__dirname, 'assets', 'icon.png'),
@@ -140,18 +152,33 @@ function createWindow() {
     settings.x = x;
     settings.y = y;
     saveSettings(settings);
+    if (baseWindowBounds) {
+      baseWindowBounds.width = w;
+      baseWindowBounds.height = h;
+      baseWindowBounds.x = x;
+      baseWindowBounds.y = y;
+    }
   });
 
   mainWindow.on('move', () => {
     if (suppressBoundsSave) return;
     const [x, y] = mainWindow.getPosition();
     if (preMiniBounds) {
-      settings.miniBounds = { x, y };
-      saveSettings(settings);
+      if (miniExpandedBounds) {
+        lastMiniPosition = { x: miniExpandedBounds.x, y: miniExpandedBounds.y };
+        debugLog('[MOVE] expanded: lastMiniPosition set to:', lastMiniPosition);
+      } else {
+        lastMiniPosition = { x, y };
+        debugLog('[MOVE] lastMiniPosition updated:', lastMiniPosition);
+      }
     } else {
       settings.x = x;
       settings.y = y;
       saveSettings(settings);
+    }
+    if (baseWindowBounds) {
+      baseWindowBounds.x = x;
+      baseWindowBounds.y = y;
     }
   });
 
@@ -252,7 +279,6 @@ function createTooltipWindow() {
       nodeIntegration: false
     }
   });
-  tooltipWindow.setAlwaysOnTop(true, 'screen-saver');
   tooltipWindow.loadFile(path.join(__dirname, 'renderer', 'tooltip.html'));
   tooltipWindow.setIgnoreMouseEvents(true);
 
@@ -436,8 +462,11 @@ ipcMain.handle('toggle-maximize', () => {
   if (preMaximizeBounds) {
     // Restore previous bounds
     suppressBoundsSave = true;
-    mainWindow.setBounds(preMaximizeBounds);
-    suppressBoundsSave = false;
+    try {
+      mainWindow.setBounds(preMaximizeBounds);
+    } finally {
+      suppressBoundsSave = false;
+    }
     preMaximizeBounds = null;
     mainWindow.webContents.send('window-state', 'restored');
     return false;
@@ -447,8 +476,11 @@ ipcMain.handle('toggle-maximize', () => {
     const currentDisplay = screen.getDisplayMatching(preMaximizeBounds);
     const { x, y, width, height } = currentDisplay.workArea;
     suppressBoundsSave = true;
-    mainWindow.setBounds({ x, y, width, height });
-    suppressBoundsSave = false;
+    try {
+      mainWindow.setBounds({ x, y, width, height });
+    } finally {
+      suppressBoundsSave = false;
+    }
     mainWindow.webContents.send('window-state', 'maximized');
     return true;
   }
@@ -463,11 +495,9 @@ ipcMain.handle('toggle-pin', () => {
     } else {
       mainWindow.setResizable(true);
       mainWindow.setMovable(true);
-      // Restore alwaysOnTop from settings
-      const settings = loadSettings();
-      mainWindow.setAlwaysOnTop(settings.alwaysOnTop !== false);
+      mainWindow.setMinimumSize(MIN_WINDOW_SIZE, MIN_WINDOW_SIZE);
+      mainWindow.setAlwaysOnTop(loadSettings().alwaysOnTop !== false);
     }
-    // Save pinned state
     const settings = loadSettings();
     settings.isPinned = isPinned;
     saveSettings(settings);
@@ -502,8 +532,11 @@ ipcMain.handle('panel-state-changed', (_, state) => {
   }
 
   suppressBoundsSave = true;
-  mainWindow.setBounds({ x, y, width: w, height: h });
-  suppressBoundsSave = false;
+  try {
+    mainWindow.setBounds({ x, y, width: w, height: h });
+  } finally {
+    suppressBoundsSave = false;
+  }
 
   // Clear base bounds when all panels close
   if (!state.leftOpen && !state.rightOpen) {
@@ -515,25 +548,48 @@ ipcMain.handle('panel-state-changed', (_, state) => {
 ipcMain.handle('get-pin-state', () => isPinned);
 
 let preMiniBounds = null; // saved window bounds before entering mini mode
+let lastMiniPosition = null; // in-memory last known mini window position
+let preMiniAlwaysOnTop = null; // saved alwaysOnTop state before entering mini mode
 
 ipcMain.handle('toggle-mini-mode', () => {
   if (!mainWindow) return false;
 
   if (preMiniBounds) {
     // Exit mini mode — remember mini position, then restore previous bounds
-    const cur = mainWindow.getBounds();
+    // If preview is expanded, miniExpandedBounds holds the original icon position.
+    let saveX, saveY;
+    if (miniExpandedBounds) {
+      saveX = miniExpandedBounds.x;
+      saveY = miniExpandedBounds.y;
+    } else {
+      [saveX, saveY] = mainWindow.getPosition();
+    }
+    lastMiniPosition = { x: saveX, y: saveY };
     const s = loadSettings();
-    s.miniBounds = { x: cur.x, y: cur.y };
+    s.miniBounds = { x: saveX, y: saveY };
+    debugLog('[EXIT-MINI] Saving miniBounds:', s.miniBounds, 'preMiniBounds:', preMiniBounds, 'hadExpandedBounds:', !!miniExpandedBounds);
     saveSettings(s);
 
     suppressBoundsSave = true;
-    mainWindow.setMinimumSize(260, 300);
-    mainWindow.setBounds(preMiniBounds);
-    mainWindow.setResizable(true);
-    mainWindow.setMovable(true);
-    suppressBoundsSave = false;
-    preMiniBounds = null;
-    miniExpandedBounds = null;
+    try {
+      mainWindow.setResizable(true);
+      mainWindow.setMovable(true);
+      mainWindow.setBounds({
+        x: preMiniBounds.x,
+        y: preMiniBounds.y,
+        width: Math.max(preMiniBounds.width, MIN_WINDOW_SIZE),
+        height: Math.max(preMiniBounds.height, MIN_WINDOW_SIZE)
+      });
+      mainWindow.setMinimumSize(MIN_WINDOW_SIZE, MIN_WINDOW_SIZE);
+      if (preMiniAlwaysOnTop !== null) {
+        mainWindow.setAlwaysOnTop(preMiniAlwaysOnTop);
+        preMiniAlwaysOnTop = null;
+      }
+      preMiniBounds = null;
+      miniExpandedBounds = null;
+    } finally {
+      suppressBoundsSave = false;
+    }
     return false;
   } else {
     // Enter mini mode — save current bounds, shrink to mini size
@@ -541,49 +597,117 @@ ipcMain.handle('toggle-mini-mode', () => {
     const miniSize = 80;
     const s = loadSettings();
     let newX, newY;
-    if (s.miniBounds) {
+    // Prefer in-memory position (same session), then disk settings, then center
+    if (lastMiniPosition) {
+      newX = lastMiniPosition.x;
+      newY = lastMiniPosition.y;
+      debugLog('[ENTER-MINI] Using in-memory lastMiniPosition:', lastMiniPosition);
+    } else if (s.miniBounds) {
       newX = s.miniBounds.x;
       newY = s.miniBounds.y;
+      debugLog('[ENTER-MINI] Loaded miniBounds from disk:', s.miniBounds);
     } else {
       newX = preMiniBounds.x + Math.round((preMiniBounds.width - miniSize) / 2);
       newY = preMiniBounds.y + Math.round((preMiniBounds.height - miniSize) / 2);
+      debugLog('[ENTER-MINI] No miniBounds, centering at:', { newX, newY });
+    }
+    // Ensure position is on a visible screen area
+    const displays = screen.getAllDisplays();
+    const visible = displays.some(d => {
+      const { x, y, width, height } = d.workArea;
+      return newX < x + width && newX + miniSize > x && newY < y + height && newY + miniSize > y;
+    });
+    if (!visible) {
+      const pd = screen.getPrimaryDisplay();
+      newX = pd.workArea.x + Math.round((pd.workArea.width - miniSize) / 2);
+      newY = pd.workArea.y + Math.round((pd.workArea.height - miniSize) / 2);
+      debugLog('[ENTER-MINI] Position not visible, fallback to center:', { newX, newY });
     }
     suppressBoundsSave = true;
-    mainWindow.setMinimumSize(miniSize, miniSize);
-    mainWindow.setResizable(false);
-    mainWindow.setMovable(true);
-    mainWindow.setBounds({ x: newX, y: newY, width: miniSize, height: miniSize });
-    suppressBoundsSave = false;
+    try {
+      preMiniAlwaysOnTop = mainWindow.isAlwaysOnTop();
+      mainWindow.setAlwaysOnTop(false);
+      mainWindow.setMinimumSize(miniSize, miniSize);
+      mainWindow.setResizable(false);
+      mainWindow.setMovable(true);
+      mainWindow.setBounds({ width: miniSize, height: miniSize });
+      mainWindow.setPosition(newX, newY);
+    } finally {
+      suppressBoundsSave = false;
+    }
+    debugLog('[ENTER-MINI] Window set to:', { x: newX, y: newY, width: miniSize, height: miniSize });
     return true;
+  }
+});
+
+ipcMain.handle('move-window-by', (_, dx, dy) => {
+  if (!mainWindow) return;
+  const [x, y] = mainWindow.getPosition();
+  suppressBoundsSave = true;
+  try {
+    // Use fixed expected sizes instead of getBounds() to prevent
+    // Windows border-rounding drift from accumulating on every drag frame.
+    const expectedWidth = miniExpandedBounds ? 296 : 80;
+    const expectedHeight = miniExpandedBounds ? 420 : 80;
+    mainWindow.setBounds({
+      x: x + dx,
+      y: y + dy,
+      width: expectedWidth,
+      height: expectedHeight
+    });
+  } finally {
+    suppressBoundsSave = false;
+  }
+  // If preview is expanded, keep miniExpandedBounds in sync so
+  // the saved icon position reflects the user's dragged location.
+  if (miniExpandedBounds) {
+    miniExpandedBounds.x += dx;
+    miniExpandedBounds.y += dy;
   }
 });
 
 let miniExpandedBounds = null;
 
-ipcMain.handle('set-mini-expanded', (_, expanded) => {
+ipcMain.handle('set-mini-expanded', (_, opts) => {
+  // opts = { expanded: true/false, width?: number, height?: number }
   if (!mainWindow) return false;
   if (!preMiniBounds) return false;
+
+  const expanded = (typeof opts === 'object') ? opts.expanded : opts;
 
   if (expanded) {
     if (miniExpandedBounds) return true;
     const currentBounds = mainWindow.getBounds();
-    miniExpandedBounds = { ...currentBounds };
-    const expandWidth = 520;
-    const expandHeight = 480;
+    // Force exact 80x80 so collapse always restores the correct mini size
+    miniExpandedBounds = { x: currentBounds.x, y: currentBounds.y, width: 80, height: 80 };
+    debugLog('[EXPAND] Saved miniExpandedBounds:', miniExpandedBounds);
+    const expandWidth = (typeof opts === 'object' && opts.width) ? opts.width : 280;
+    const expandHeight = (typeof opts === 'object' && opts.height) ? opts.height : 400;
+    // Center the expansion around current window position
+    const newX = currentBounds.x - Math.round((expandWidth - currentBounds.width) / 2);
+    const newY = currentBounds.y - Math.round((expandHeight - currentBounds.height) / 2);
     suppressBoundsSave = true;
-    mainWindow.setBounds({
-      x: currentBounds.x,
-      y: currentBounds.y,
-      width: expandWidth,
-      height: expandHeight
-    });
-    suppressBoundsSave = false;
+    try {
+      mainWindow.setBounds({
+        x: newX,
+        y: newY,
+        width: expandWidth,
+        height: expandHeight
+      });
+    } finally {
+      suppressBoundsSave = false;
+    }
+    debugLog('[EXPAND] Window expanded to:', { x: newX, y: newY, width: expandWidth, height: expandHeight });
     return true;
   } else {
     if (!miniExpandedBounds) return false;
     suppressBoundsSave = true;
-    mainWindow.setBounds(miniExpandedBounds);
-    suppressBoundsSave = false;
+    try {
+      mainWindow.setBounds(miniExpandedBounds);
+    } finally {
+      suppressBoundsSave = false;
+    }
+    debugLog('[COLLAPSE] Window collapsed to:', miniExpandedBounds);
     miniExpandedBounds = null;
     return false;
   }
@@ -599,9 +723,12 @@ app.whenReady().then(() => {
   if (settings.isPinned) {
     isPinned = true;
     suppressBoundsSave = true;
-    mainWindow.setResizable(false);
-    mainWindow.setMovable(false);
-    suppressBoundsSave = false;
+    try {
+      mainWindow.setResizable(false);
+      mainWindow.setMovable(false);
+    } finally {
+      suppressBoundsSave = false;
+    }
   }
 
   createTray();

@@ -90,8 +90,13 @@
     <div class="settings-section-title">字体大小</div>
     <div class="settings-group">
       <label>月份标题</label>
-      <input type="range" id="month-font-slider" min="8" max="60" value="17">
-      <span class="slider-value" id="month-font-value">17px</span>
+      <input type="range" id="month-font-slider" min="24" max="120" value="72">
+      <span class="slider-value" id="month-font-value">72px</span>
+    </div>
+    <div class="settings-group">
+      <label>年份文字</label>
+      <input type="range" id="year-font-slider" min="10" max="36" value="18">
+      <span class="slider-value" id="year-font-value">18px</span>
     </div>
     <div class="settings-group">
       <label>日历日期</label>
@@ -199,7 +204,10 @@
   <!-- Calendar Header (nav buttons removed→floating) -->
   <div id="calendar-header">
     <div class="month-year">
-      <span id="current-year"></span><span id="current-month"></span>
+      <div class="month-year-text">
+        <div id="current-month"></div>
+        <div id="current-year"></div>
+      </div>
       <button id="btn-today" class="today-btn">回到今日</button>
     </div>
   </div>
@@ -216,6 +224,12 @@
   <!-- Calendar Grid -->
   <div id="calendar-grid"></div>
 
+  <!-- Date Tooltip (inline, animates from hovered cell) -->
+  <div id="date-tooltip" class="hidden">
+    <div class="date-tooltip-header"></div>
+    <div class="date-tooltip-list"></div>
+  </div>
+
   <!-- Floating action buttons (top-left corner, always visible) -->
   <button class="float-btn" id="mini-mode-btn" title="迷你模式">⊟</button>
   <button class="float-btn" id="settings-float-btn" title="设置">⚙</button>
@@ -223,9 +237,16 @@
   <!-- Mini Mode View -->
   <div id="mini-view" class="hidden">
     <div id="mini-calendar-icon">
-      <span id="mini-month">5月</span>
-      <span id="mini-day">12</span>
-      <span id="mini-weekday">一</span>
+      <div class="mini-icon-core">
+        <span id="mini-month">MAY</span>
+        <span id="mini-day">14</span>
+        <span id="mini-weekday">四</span>
+      </div>
+      <div class="mini-preview-body">
+        <div class="mini-preview-subheader"></div>
+        <div class="mini-preview-list"></div>
+        <div class="mini-preview-hint">点击查看详情</div>
+      </div>
     </div>
   </div>
 
