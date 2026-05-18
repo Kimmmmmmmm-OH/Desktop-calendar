@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>桌面日历清单</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <!-- Close Dialog -->
+  <div id="close-dialog" class="hidden">
+    <div id="close-dialog-backdrop"></div>
+    <div id="close-dialog-box">
+      <div class="close-dialog-title">退出桌面日历清单</div>
+      <div class="close-dialog-actions">
+        <button id="close-dialog-hide" class="dialog-btn">隐藏到托盘</button>
+        <button id="close-dialog-quit" class="dialog-btn dialog-btn-danger">关闭软件</button>
+        <button id="close-dialog-cancel" class="dialog-btn dialog-btn-cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slide-out Panel Overlay -->
+  <div id="panel-overlay" class="hidden"></div>
+
+  <!-- Memo Panel (slide from right) -->
+  <div id="memo-panel" class="slide-panel slide-right hidden">
+    <div class="slide-panel-header">
+      <span>备忘录</span>
+      <button class="slide-panel-close" id="btn-memo-close">✕</button>
+    </div>
+    <div class="memo-body">
+      <textarea id="memo-textarea" placeholder="输入备忘录内容..."></textarea>
+      <div class="settings-group memo-font-group">
+        <label>字体大小</label>
+        <input type="range" id="memo-font-slider" min="8" max="48" value="14">
+        <span class="slider-value" id="memo-font-value">14px</span>
+      </div>
+      <div class="settings-group memo-color-group">
+        <label>文字颜色</label>
+        <input type="color" id="memo-text-color" value="#e8e6e3">
+      </div>
+    </div>
+  </div>
+
+  <!-- Title Bar -->
+  <div id="title-bar">
+    <div class="title-text">Desktop Calendar</div>
+    <div class="title-actions">
+      <button class="title-btn" id="btn-memo" title="备忘录">✎</button>
+      <button class="title-btn" id="btn-pin" title="固定到桌面">⬇</button>
+      <button class="title-btn" id="btn-maximize" title="最大化/还原">☐</button>
+      <button class="title-btn" id="btn-minimize" title="最小化到托盘">─</button>
+      <button class="title-btn" id="btn-close" title="关闭">✕</button>
+    </div>
+  </div>
+
+  <!-- Calendar Header (nav buttons removed→floating) -->
+  <div id="calendar-header">
+    <div class="month-year">
+      <div class="month-year-text">
+        <div id="current-month"></div>
+        <div id="current-year"></div>
+      </div>
+      <button id="btn-today" class="today-btn">回到今日</button>
+    </div>
+  </div>
+
+  <!-- Floating nav buttons (vertically centered on window) -->
+  <button id="btn-prev-month" class="nav-btn nav-floating">◀</button>
+  <button id="btn-next-month" class="nav-btn nav-floating">▶</button>
+
+  <!-- Day-of-week Headers -->
+  <div id="weekday-header">
+    <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+  </div>
+
+  <!-- Calendar Grid -->
+  <div id="calendar-grid"></div>
+
+  <!-- Date Tooltip (inline, animates from hovered cell) -->
+  <div id="date-tooltip" class="hidden">
+    <div class="date-tooltip-header"></div>
+    <div class="date-tooltip-list"></div>
+  </div>
+
+  <!-- Floating action buttons (top-left corner, always visible) -->
+  <button class="float-btn" id="mini-mode-btn" title="迷你模式">⊟</button>
+  <button class="float-btn" id="settings-float-btn" title="设置">⚙</button>
+
+  <!-- Mini Mode View -->
+  <div id="mini-view" class="hidden">
+    <div id="mini-calendar-icon">
+      <div class="mini-icon-core">
+        <span id="mini-month">MAY</span>
+        <span id="mini-day">14</span>
+        <span id="mini-weekday">四</span>
+        <span id="mini-weekday-en">MONDAY</span>
+      </div>
+      <div class="mini-preview-body">
+        <div class="mini-preview-subheader"></div>
+        <div class="mini-preview-list"></div>
+        <div class="mini-preview-hint">点击查看详情</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Todo Detail View (full-page for a single date) -->
+  <div id="detail-view" class="hidden">
+    <div id="detail-header">
+      <button id="btn-detail-back" class="detail-back-btn">返回</button>
+      <div id="detail-header-info">
+        <span id="detail-date-label"></span>
+        <span id="detail-lunar-label"></span>
+      </div>
+      <span id="detail-todo-count"></span>
+    </div>
+    <div id="detail-todo-body">
+      <div id="detail-todo-list"></div>
+      <div id="detail-todo-add-row" class="detail-add-row">
+        <div id="detail-category-pick" class="detail-category-pick"></div>
+        <input type="text" id="detail-todo-input" placeholder="输入待办事项...">
+        <button id="btn-detail-save" class="save-btn">✓</button>
+      </div>
+      <div id="detail-todo-edit-row" class="detail-edit-row hidden">
+        <input type="text" id="detail-todo-edit-input">
+        <button id="btn-detail-save-edit" class="save-btn">✓</button>
+        <button id="btn-detail-cancel-edit" class="cancel-btn">✕</button>
+      </div>
+    </div>
+    <!-- Category popup -->
+    <div id="category-popup" class="hidden">
+      <div class="category-popup-backdrop"></div>
+      <div class="category-popup-panel">
+        <div class="category-popup-title">选择分类</div>
+        <div id="category-popup-list"></div>
+      </div>
+    </div>
+
+    <!-- Custom Category popup -->
+    <div id="custom-category-popup" class="hidden">
+      <div class="category-popup-backdrop"></div>
+      <div class="custom-category-panel">
+        <div class="custom-category-header">
+          <button id="custom-cat-back" class="custom-cat-back-btn">返回</button>
+          <button id="custom-cat-save" class="custom-cat-save-btn">确认</button>
+        </div>
+        <div class="custom-category-form">
+          <div class="form-row">
+            <label>名称</label>
+            <input type="text" id="custom-cat-name" placeholder="分类名称" maxlength="8">
+          </div>
+          <div class="form-row">
+            <label>颜色</label>
+            <div class="form-color-row">
+              <input type="color" id="custom-cat-color" value="#e07a5f">
+              <span class="form-color-hex" id="custom-cat-color-hex">#e07a5f</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>图标</label>
+            <div id="custom-cat-icons" class="icon-grid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

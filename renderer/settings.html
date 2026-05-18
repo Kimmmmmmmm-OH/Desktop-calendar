@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>设置</title>
+<link rel="stylesheet" href="settings-style.css">
+</head>
+<body>
+<div id="settings-panel">
+  <!-- Custom title bar (drag region) -->
+  <div class="settings-header">
+    <span>设置</span>
+    <button class="settings-close" id="btn-settings-close">✕</button>
+  </div>
+
+  <!-- Opacity -->
+  <div class="settings-section-title">透明度</div>
+  <div class="settings-card">
+    <div class="settings-group">
+      <label>背景</label>
+      <input type="range" id="bg-opacity-slider" min="30" max="100" value="92">
+      <span class="slider-value" id="bg-opacity-value">92%</span>
+    </div>
+    <div class="settings-group">
+      <label>字体</label>
+      <input type="range" id="text-opacity-slider" min="30" max="100" value="100">
+      <span class="slider-value" id="text-opacity-value">100%</span>
+    </div>
+  </div>
+
+  <!-- Background HSL (inline 3-col) -->
+  <div class="settings-section-title">背景颜色</div>
+  <div class="settings-card">
+    <div class="hsl-row">
+      <div class="hsl-cell">
+        <label>色相</label>
+        <input type="range" id="bg-hue-slider" min="0" max="360" value="0" class="hue-slider">
+        <span class="slider-value" id="bg-hue-value">0°</span>
+      </div>
+      <div class="hsl-cell">
+        <label>饱和度</label>
+        <input type="range" id="bg-sat-slider" min="0" max="100" value="0">
+        <span class="slider-value" id="bg-sat-value">0%</span>
+      </div>
+      <div class="hsl-cell">
+        <label>亮度</label>
+        <input type="range" id="bg-light-slider" min="0" max="100" value="96">
+        <span class="slider-value" id="bg-light-value">96%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Font/Accent HSL (inline 3-col) -->
+  <div class="settings-section-title">字体 / 强调色</div>
+  <div class="settings-card">
+    <div class="hsl-row">
+      <div class="hsl-cell">
+        <label>色相</label>
+        <input type="range" id="fg-hue-slider" min="0" max="360" value="0" class="hue-slider">
+        <span class="slider-value" id="fg-hue-value">0°</span>
+      </div>
+      <div class="hsl-cell">
+        <label>饱和度</label>
+        <input type="range" id="fg-sat-slider" min="0" max="100" value="0">
+        <span class="slider-value" id="fg-sat-value">0%</span>
+      </div>
+      <div class="hsl-cell">
+        <label>亮度</label>
+        <input type="range" id="fg-light-slider" min="0" max="100" value="12">
+        <span class="slider-value" id="fg-light-value">12%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Font Family -->
+  <div class="settings-section-title">字体样式</div>
+  <div class="settings-card">
+    <div class="settings-group">
+      <label>字体</label>
+      <select id="font-family-select" class="font-select"></select>
+    </div>
+  </div>
+
+  <!-- Font Size -->
+  <div class="settings-section-title">字体大小</div>
+  <div class="settings-card">
+    <div class="settings-group">
+      <label>月份标题</label>
+      <input type="range" id="month-font-slider" min="40" max="110" value="72">
+      <span class="slider-value" id="month-font-value">72px</span>
+    </div>
+    <div class="settings-group">
+      <label>年份文字</label>
+      <input type="range" id="year-font-slider" min="15" max="30" value="18">
+      <span class="slider-value" id="year-font-value">18px</span>
+    </div>
+    <div class="settings-group">
+      <label>日历日期</label>
+      <input type="range" id="date-font-slider" min="15" max="40" value="22">
+      <span class="slider-value" id="date-font-value">22px</span>
+    </div>
+    <div class="settings-group">
+      <label>星期栏</label>
+      <input type="range" id="weekday-font-slider" min="15" max="35" value="15">
+      <span class="slider-value" id="weekday-font-value">15px</span>
+    </div>
+    <div class="settings-group">
+      <label>农历</label>
+      <input type="range" id="lunar-font-slider" min="15" max="20" value="15">
+      <span class="slider-value" id="lunar-font-value">15px</span>
+    </div>
+    <div class="settings-group">
+      <label>圆点大小</label>
+      <input type="range" id="todo-dot-size-slider" min="6" max="10" value="8">
+      <span class="slider-value" id="todo-dot-size-value">8px</span>
+    </div>
+  </div>
+
+  <!-- Toggles -->
+  <div class="settings-section-title">功能开关</div>
+  <div class="settings-card">
+    <div class="settings-group toggle-group">
+      <label>窗口置顶</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-ontop" checked>
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="settings-group toggle-group">
+      <label>开机自启</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-autostart">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+    <div class="settings-group toggle-group">
+      <label>隐藏标题栏</label>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-titlebar">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Background Image -->
+  <div class="settings-section-title">背景图片</div>
+  <div class="settings-card">
+    <div class="settings-group">
+      <button id="btn-choose-bg-image" class="bg-image-btn">选择图片</button>
+      <button id="btn-clear-bg-image" class="bg-image-btn bg-image-btn-clear hidden">清除</button>
+    </div>
+  </div>
+
+  <!-- Preset buttons (2×3 grid) -->
+  <div class="preset-row">
+    <button class="preset-btn" data-preset="gold">暗金</button>
+    <button class="preset-btn" data-preset="blue">深蓝</button>
+    <button class="preset-btn" data-preset="purple">暗紫</button>
+    <button class="preset-btn" data-preset="green">墨绿</button>
+    <button class="preset-btn" data-preset="light">简约白</button>
+    <button class="preset-btn preset-reset" data-preset="default">默认</button>
+  </div>
+
+  <!-- Save (sticky footer) -->
+  <div class="settings-save-row">
+    <button id="btn-save-settings" class="save-settings-btn">保存设置</button>
+    <span id="save-settings-feedback" class="save-feedback hidden">已保存</span>
+  </div>
+</div>
+
+<script src="settings.js"></script>
+</body>
+</html>
