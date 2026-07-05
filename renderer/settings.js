@@ -18,6 +18,7 @@ function applyColors(bgH, bgS, bgL, fgH, fgS, fgL) {
   root.style.setProperty('--bg-secondary', `hsl(${bgH}, ${bgS}%, ${Math.min(bgL + 4, 95)}%)`);
   root.style.setProperty('--bg-tertiary', `hsl(${bgH}, ${bgS}%, ${Math.min(bgL + 8, 95)}%)`);
   root.style.setProperty('--bg-hover', `hsl(${bgH}, ${bgS}%, ${Math.min(bgL + 14, 95)}%)`);
+  root.style.setProperty('--bg-primary-rgb', hslToRgb(bgH, bgS, bgL));
   root.style.setProperty('--accent', `hsl(${fgH}, ${fgS}%, ${fgL}%)`);
   root.style.setProperty('--accent-light', `hsl(${fgH}, ${fgS}%, ${Math.min(fgL + 10, 95)}%)`);
   root.style.setProperty('--accent-dark', `hsl(${fgH}, ${fgS}%, ${Math.max(fgL - 10, 5)}%)`);
@@ -31,6 +32,8 @@ function applyColors(bgH, bgS, bgL, fgH, fgS, fgL) {
     root.style.setProperty('--border', 'rgba(0,0,0,0.06)');
     root.style.setProperty('--border-strong', 'rgba(0,0,0,0.1)');
     root.style.setProperty('--shadow', '0 2px 12px rgba(0,0,0,0.06)');
+    root.style.setProperty('--mini-card-bg', 'rgba(255, 255, 255, 0.55)');
+    root.style.setProperty('--mini-card-hover', 'rgba(255, 255, 255, 0.85)');
   } else {
     root.style.setProperty('--text-primary', '#e8e6e3');
     root.style.setProperty('--text-secondary', '#9a98a0');
@@ -38,6 +41,8 @@ function applyColors(bgH, bgS, bgL, fgH, fgS, fgL) {
     root.style.setProperty('--border', 'rgba(255,255,255,0.08)');
     root.style.setProperty('--border-strong', 'rgba(255,255,255,0.14)');
     root.style.setProperty('--shadow', '0 2px 20px rgba(0,0,0,0.4)');
+    root.style.setProperty('--mini-card-bg', 'rgba(255, 255, 255, 0.08)');
+    root.style.setProperty('--mini-card-hover', 'rgba(255, 255, 255, 0.14)');
   }
 }
 
@@ -134,9 +139,7 @@ async function resetAllSettings() {
       alwaysOnTop: true,
       autoStart: false,
       titlebarHidden: false,
-      backgroundImage: '',
-      memoFontSize: 14,
-      memoTextColor: '#111111'
+      backgroundImage: ''
     });
   }
 }

@@ -24,22 +24,102 @@
   <!-- Slide-out Panel Overlay -->
   <div id="panel-overlay" class="hidden"></div>
 
-  <!-- Memo Panel (slide from right) -->
-  <div id="memo-panel" class="slide-panel slide-right hidden">
+  <!-- Stats Panel (slide from right) -->
+  <div id="stats-panel" class="slide-panel slide-right hidden">
     <div class="slide-panel-header">
-      <span>备忘录</span>
-      <button class="slide-panel-close" id="btn-memo-close">✕</button>
+      <span>统计</span>
+      <button class="slide-panel-close" id="btn-stats-close">✕</button>
     </div>
-    <div class="memo-body">
-      <textarea id="memo-textarea" placeholder="输入备忘录内容..."></textarea>
-      <div class="settings-group memo-font-group">
-        <label>字体大小</label>
-        <input type="range" id="memo-font-slider" min="8" max="48" value="14">
-        <span class="slider-value" id="memo-font-value">14px</span>
+    <div class="stats-body">
+      <!-- 年/月选择 -->
+      <div class="stats-period-row">
+        <select id="stats-year" class="stats-select"></select>
+        <select id="stats-month" class="stats-select">
+          <option value="">全年</option>
+          <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
+          <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
+          <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
+          <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+        </select>
       </div>
-      <div class="settings-group memo-color-group">
-        <label>文字颜色</label>
-        <input type="color" id="memo-text-color" value="#e8e6e3">
+      <!-- 统计列表 -->
+      <div class="stats-list" id="stats-list">
+        <div class="stats-empty">选择年份开始统计</div>
+      </div>
+      <!-- 合计行 -->
+      <div class="stats-total hidden" id="stats-total">
+        <span class="stats-total-label">合计</span>
+        <span class="stats-total-count" id="stats-total-count"></span>
+        <span class="stats-total-rate" id="stats-total-rate"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search Panel (slide from right) -->
+  <div id="search-panel" class="slide-panel slide-right hidden">
+    <div class="slide-panel-header">
+      <span>检索待办</span>
+      <button class="slide-panel-close" id="btn-search-close">✕</button>
+    </div>
+    <div class="search-body">
+      <!-- 分类筛选 -->
+      <div class="search-filter-row">
+        <select id="search-category" class="search-select">
+          <option value="">全部分类</option>
+        </select>
+        <select id="search-status" class="search-select">
+          <option value="">全部状态</option>
+          <option value="uncompleted">未完成</option>
+          <option value="completed">已完成</option>
+        </select>
+      </div>
+      <!-- 文字搜索 -->
+      <div class="search-input-row">
+        <input type="text" id="search-text" class="search-input" placeholder="输入关键词搜索...">
+      </div>
+      <!-- 搜索结果 -->
+      <div class="search-results" id="search-results">
+        <div class="search-empty">输入关键词或选择分类开始检索</div>
+      </div>
+      <!-- 批量操作栏 -->
+      <div class="search-batch-bar hidden" id="search-batch-bar">
+        <label class="search-select-all">
+          <input type="checkbox" id="search-check-all"> 全选
+        </label>
+        <span class="search-batch-count" id="search-batch-count"></span>
+        <button id="btn-batch-delete" class="search-batch-btn search-batch-delete" title="批量删除">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </button>
+        <button id="btn-batch-edit" class="search-batch-btn search-batch-edit" title="批量修改">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button id="btn-batch-complete" class="search-batch-btn search-batch-complete" title="批量完成">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Edit Popup -->
+  <div id="batch-edit-popup" class="hidden">
+    <div class="category-popup-backdrop" id="batch-edit-backdrop"></div>
+    <div class="batch-edit-panel">
+      <div class="batch-edit-title">批量修改（已选 <span id="batch-edit-count">0</span> 项）</div>
+      <div class="batch-edit-body">
+        <!-- 修改文字内容 -->
+        <div class="batch-edit-section">
+          <label class="batch-edit-label">修改事项内容</label>
+          <input type="text" id="batch-edit-text" class="batch-edit-text-input" placeholder="输入新内容（留空则不改）">
+        </div>
+        <!-- 修改分类 -->
+        <div class="batch-edit-section">
+          <label class="batch-edit-label">修改分类（点击选择）</label>
+          <div id="batch-category-list" class="batch-category-list"></div>
+        </div>
+      </div>
+      <div class="batch-edit-actions">
+        <button id="btn-batch-edit-cancel" class="batch-edit-cancel">取消</button>
+        <button id="btn-batch-edit-apply" class="batch-edit-apply">应用修改</button>
       </div>
     </div>
   </div>
@@ -48,7 +128,12 @@
   <div id="title-bar">
     <div class="title-text">Desktop Calendar</div>
     <div class="title-actions">
-      <button class="title-btn" id="btn-memo" title="备忘录">✎</button>
+      <button class="title-btn" id="btn-stats" title="统计">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="12" width="5" height="9" rx="1"/><rect x="9.5" y="7" width="5" height="14" rx="1"/><rect x="16" y="3" width="5" height="18" rx="1"/></svg>
+      </button>
+      <button class="title-btn" id="btn-search" title="检索待办">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
       <button class="title-btn" id="btn-pin" title="固定到桌面">⬇</button>
       <button class="title-btn" id="btn-maximize" title="最大化/还原">☐</button>
       <button class="title-btn" id="btn-minimize" title="最小化到托盘">─</button>
@@ -120,8 +205,12 @@
       <div id="detail-todo-list"></div>
       <div id="detail-todo-add-row" class="detail-add-row">
         <div id="detail-category-pick" class="detail-category-pick"></div>
+        <div id="detail-time-pick" class="detail-time-pick" title="设置时间（可选）">
+          <span class="time-pick-icon">🕐</span>
+        </div>
         <input type="text" id="detail-todo-input" placeholder="输入待办事项...">
         <button id="btn-detail-save" class="save-btn">✓</button>
+        <button id="btn-detail-repeat" class="repeat-btn" title="重复事项">↻</button>
       </div>
       <div id="detail-todo-edit-row" class="detail-edit-row hidden">
         <input type="text" id="detail-todo-edit-input">
@@ -162,6 +251,62 @@
             <label>图标</label>
             <div id="custom-cat-icons" class="icon-grid"></div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Time Picker Popup -->
+    <div id="time-picker-popup" class="hidden">
+      <div class="category-popup-backdrop" id="time-picker-backdrop"></div>
+      <div class="time-picker-panel">
+        <div class="time-picker-title">设置时间范围（可选）</div>
+        <div class="time-picker-body">
+          <div class="time-picker-row">
+            <label>开始时间</label>
+            <input type="time" id="time-start">
+          </div>
+          <div class="time-picker-row">
+            <label>结束时间</label>
+            <input type="time" id="time-end">
+          </div>
+          <div class="time-picker-error hidden" id="time-error">开始时间不能大于结束时间</div>
+        </div>
+        <div class="time-picker-actions">
+          <button id="btn-time-clear" class="time-picker-clear">清除</button>
+          <button id="btn-time-confirm" class="time-picker-confirm">确认</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Repeat Popup -->
+    <div id="repeat-popup" class="hidden">
+      <div class="category-popup-backdrop" id="repeat-popup-backdrop"></div>
+      <div class="repeat-panel">
+        <div class="repeat-title">重复设置</div>
+        <div class="repeat-body">
+          <div class="repeat-section">
+            <label>每周重复日</label>
+            <div class="repeat-weekdays" id="repeat-weekdays">
+              <label class="weekday-chip"><input type="checkbox" value="1"><span>一</span></label>
+              <label class="weekday-chip"><input type="checkbox" value="2"><span>二</span></label>
+              <label class="weekday-chip"><input type="checkbox" value="3"><span>三</span></label>
+              <label class="weekday-chip"><input type="checkbox" value="4"><span>四</span></label>
+              <label class="weekday-chip"><input type="checkbox" value="5"><span>五</span></label>
+              <label class="weekday-chip"><input type="checkbox" value="6"><span>六</span></label>
+              <label class="weekday-chip"><input type="checkbox" value="0"><span>日</span></label>
+            </div>
+          </div>
+          <div class="repeat-section">
+            <label>重复周数</label>
+            <div class="repeat-weeks-row">
+              <input type="number" id="repeat-weeks" min="1" max="52" value="4" class="repeat-weeks-input">
+              <span>周</span>
+            </div>
+          </div>
+        </div>
+        <div class="repeat-actions">
+          <button id="btn-repeat-cancel" class="repeat-cancel-btn">取消</button>
+          <button id="btn-repeat-confirm" class="repeat-confirm-btn">确认重复</button>
         </div>
       </div>
     </div>

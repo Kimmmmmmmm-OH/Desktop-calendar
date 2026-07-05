@@ -199,6 +199,7 @@ function applyColors(bgH, bgS, bgL, fgH, fgS, fgL) {
   root.style.setProperty('--bg-secondary', `hsl(${bgH}, ${bgS}%, ${Math.min(bgL + 4, 95)}%)`);
   root.style.setProperty('--bg-tertiary', `hsl(${bgH}, ${bgS}%, ${Math.min(bgL + 8, 95)}%)`);
   root.style.setProperty('--bg-hover', `hsl(${bgH}, ${bgS}%, ${Math.min(bgL + 14, 95)}%)`);
+  root.style.setProperty('--bg-primary-rgb', hslToRgb(bgH, bgS, bgL));
   root.style.setProperty('--accent', `hsl(${fgH}, ${fgS}%, ${fgL}%)`);
   root.style.setProperty('--accent-light', `hsl(${fgH}, ${fgS}%, ${Math.min(fgL + 10, 95)}%)`);
   root.style.setProperty('--accent-dark', `hsl(${fgH}, ${fgS}%, ${Math.max(fgL - 10, 5)}%)`);
@@ -212,6 +213,8 @@ function applyColors(bgH, bgS, bgL, fgH, fgS, fgL) {
     root.style.setProperty('--border', 'rgba(0,0,0,0.06)');
     root.style.setProperty('--border-strong', 'rgba(0,0,0,0.1)');
     root.style.setProperty('--shadow', '0 2px 12px rgba(0,0,0,0.06)');
+    root.style.setProperty('--mini-card-bg', 'rgba(255, 255, 255, 0.55)');
+    root.style.setProperty('--mini-card-hover', 'rgba(255, 255, 255, 0.85)');
   } else {
     root.style.setProperty('--text-primary', '#e8e6e3');
     root.style.setProperty('--text-secondary', '#9a98a0');
@@ -219,6 +222,8 @@ function applyColors(bgH, bgS, bgL, fgH, fgS, fgL) {
     root.style.setProperty('--border', 'rgba(255,255,255,0.08)');
     root.style.setProperty('--border-strong', 'rgba(255,255,255,0.14)');
     root.style.setProperty('--shadow', '0 2px 20px rgba(0,0,0,0.4)');
+    root.style.setProperty('--mini-card-bg', 'rgba(255, 255, 255, 0.08)');
+    root.style.setProperty('--mini-card-hover', 'rgba(255, 255, 255, 0.14)');
   }
 }
 
@@ -237,8 +242,9 @@ const TODO_CATEGORIES = [
   { id: 'birthday',      label: '生日',   color: '#e53935', icon: 'cake' },
   { id: 'festival',      label: '节日',   color: '#ff9800', icon: 'star' },
   { id: 'entertainment', label: '娱乐',   color: '#7c4dff', icon: 'disc' },
-  { id: 'study',         label: '学习',   color: '#43a047', icon: 'gradcap' },
-  { id: 'work',          label: '工作',   color: '#0d9488', icon: 'briefcase' }
+  { id: 'study',         label: '学习',   color: '#0891b2', icon: 'gradcap' },
+  { id: 'work',          label: '工作',   color: '#0d9488', icon: 'briefcase' },
+  { id: 'sport',         label: '运动',   color: '#4caf50', icon: 'run' }
 ];
 
 const ICON_SVGS = {
@@ -274,7 +280,8 @@ const ICON_SVGS = {
   camera:    '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2v11zm-11-4a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/>',
   car:       '<path d="M5 11l2-5h10l2 5v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7zm4 7a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5zm6 0a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>',
   anchor:    '<path d="M12 2a3 3 0 0 0-3 3 3 3 0 0 0 2 2.83V18a4 4 0 0 1-3-1.5l-1 1.5a6 6 0 0 0 10 0l-1-1.5a4 4 0 0 1-3 1.5V7.83A3 3 0 0 0 15 5a3 3 0 0 0-3-3z"/>',
-  flag:      '<path d="M4 22V2l2 1s3-1 5 1 5 1 5 1v10s-3 0-5-2-5 0-5 0v9H4z"/>'
+  flag:      '<path d="M4 22V2l2 1s3-1 5 1 5 1 5 1v10s-3 0-5-2-5 0-5 0v9H4z"/>',
+  run:       '<circle cx="14" cy="4" r="2"/><path d="M11 22l1-6 2 2v5h2v-7l-2-2 1-3c1 1 2.5 2 4.5 2h1.5v-2h-1c-1.2 0-2.3-.5-3-1.3l-1.2-1.3c-.8-.8-1.8-1.4-3-1.4-.4 0-.7 0-1.1.2L9 8.5 7 11l2 2-2 5-2 4h2l1.5-3L11 22z"/>'
 };
 
 const CUSTOM_CATEGORY_COLORS = [
@@ -360,6 +367,23 @@ const MONTH_NAMES_EN = [
   'JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'
 ];
 const WEEKDAY_NAMES_EN = ['SUNDAY','MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY'];
+const WEEKDAY_NAMES_CN = ['日','一','二','三','四','五','六'];
+
+// 按时间排序待办：已完成排最后，有时间排前面按开始时间升序，冇时间按创建时间降序
+function sortTodosByTime(dayTodos) {
+  return [...dayTodos].sort((a, b) => {
+    if (a.completed !== b.completed) return a.completed ? 1 : -1;
+    const aHasTime = !!(a.startTime || a.endTime);
+    const bHasTime = !!(b.startTime || b.endTime);
+    if (aHasTime !== bHasTime) return aHasTime ? -1 : 1;
+    if (aHasTime && bHasTime) {
+      const aTime = a.startTime || a.endTime || '99:99';
+      const bTime = b.startTime || b.endTime || '99:99';
+      return aTime.localeCompare(bTime);
+    }
+    return b.createdAt - a.createdAt;
+  });
+}
 
 function renderCalendar() {
   const grid = document.getElementById('calendar-grid');
@@ -638,14 +662,62 @@ function addTodo(text) {
   if (!key) return;
 
   if (!todos[key]) todos[key] = [];
-  const nextTodoId = getMaxTodoId() + 1;
-  todos[key].push({
-    id: nextTodoId,
+
+  // 获取基准 ID
+  const baseId = getMaxTodoId() + 1;
+  let idOffset = 0;
+
+  const now = Date.now();
+  const baseTodo = {
     text: text.trim(),
     completed: false,
-    createdAt: Date.now(),
-    category: selectedCategory || 'event'
-  });
+    createdAt: now,
+    category: selectedCategory || 'event',
+    startTime: pendingStartTime,
+    endTime: pendingEndTime
+  };
+
+  // 创建当前日期的待办（附带重复信息以便显示）
+  const firstTodo = { id: baseId + idOffset, ...baseTodo };
+  idOffset++;
+  if (pendingRepeat && pendingRepeat.weekdays.length > 0) {
+    firstTodo.repeat = {
+      weekdays: [...pendingRepeat.weekdays],
+      weeks: pendingRepeat.weeks
+    };
+  }
+  todos[key].push(firstTodo);
+
+  // 处理重复：根据选中的星期几在后续周创建待办
+  if (pendingRepeat && pendingRepeat.weekdays.length > 0) {
+    const baseDate = parseDateKey(key);
+    const baseDayOfWeek = new Date(baseDate.year, baseDate.month - 1, baseDate.day).getDay();
+    const targetWeekdays = pendingRepeat.weekdays;
+    const totalWeeks = pendingRepeat.weeks;
+    const currentDate = new Date(baseDate.year, baseDate.month - 1, baseDate.day);
+
+    for (let w = 1; w <= totalWeeks; w++) {
+      for (const targetDow of targetWeekdays) {
+        if (w === 1 && targetDow === baseDayOfWeek) continue;
+        const dayOffset = (w - 1) * 7 + (targetDow - baseDayOfWeek);
+        if (dayOffset <= 0) continue;
+
+        const targetDate = new Date(currentDate);
+        targetDate.setDate(targetDate.getDate() + dayOffset);
+
+        const targetKey = dateKey(targetDate.getFullYear(), targetDate.getMonth() + 1, targetDate.getDate());
+        if (!todos[targetKey]) todos[targetKey] = [];
+        todos[targetKey].push({
+          id: baseId + idOffset,
+          ...baseTodo
+        });
+        idOffset++;
+      }
+    }
+  }
+
+  // 重置暂存状态
+  resetPendingState();
   saveTodos();
   renderCalendar();
 }
@@ -757,20 +829,13 @@ async function loadSettings() {
 
     if (s.titlebarHidden) applyTitlebarHide(true);
 
-    if (s.memoText) {
-      document.getElementById('memo-textarea').value = s.memoText;
-    }
-    const mfs = s.memoFontSize || 14;
-    document.getElementById('memo-font-slider').value = mfs;
-    document.getElementById('memo-font-value').textContent = mfs + 'px';
-    document.getElementById('memo-textarea').style.fontSize = mfs + 'px';
-    const memoColor = s.memoTextColor || '#111111';
-    document.getElementById('memo-text-color').value = memoColor;
-    document.getElementById('memo-textarea').style.color = memoColor;
+    // C01 要求：启动时不固定到桌面，唔好读取已保存的 isPinned 视觉状态
+    // pin 按钮由用户手动点击切换，唔会在启动时自动激活
 
-    if (s.isPinned) {
-      document.getElementById('btn-pin').classList.add('active');
-      document.getElementById('title-bar').classList.add('no-drag');
+    // 恢复迷你模式状态（如果上次关闭时处于迷你模式）
+    // 需要用 setTimeout 确保 DOM 同 calendar 已经完全渲染
+    if (s.isMiniMode && !isMiniMode) {
+      setTimeout(() => applyMiniModeUI(), 100);
     }
   }
 }
@@ -840,7 +905,8 @@ function closePanel(id) {
 }
 
 function closeAllPanels() {
-  closePanel('memo-panel');
+  if (document.getElementById('search-panel').classList.contains('open')) closeSearchPanel();
+  if (document.getElementById('stats-panel').classList.contains('open')) closeStatsPanel();
 }
 
 function togglePanel(id) {
@@ -848,8 +914,608 @@ function togglePanel(id) {
   if (panel.classList.contains('open')) {
     closePanel(id);
   } else {
-    if (id === 'memo-panel') openPanel(id);
+    if (id === 'search-panel') openSearchPanel();
   }
+}
+
+/* ================================================================
+   SEARCH PANEL (检索待办)
+   ================================================================ */
+
+let searchResults = []; // { key, todo, dateStr }
+let selectedSearchItems = new Set(); // Set of 'key|todoId'
+
+function openSearchPanel() {
+  // 初始化分类下拉
+  const catSelect = document.getElementById('search-category');
+  catSelect.innerHTML = '<option value="">全部分类</option>';
+  for (const cat of TODO_CATEGORIES) {
+    const opt = document.createElement('option');
+    opt.value = cat.id;
+    opt.textContent = cat.label;
+    catSelect.appendChild(opt);
+  }
+  for (const cat of customCategories) {
+    const opt = document.createElement('option');
+    opt.value = cat.id;
+    opt.textContent = cat.label;
+    catSelect.appendChild(opt);
+  }
+
+  document.getElementById('search-text').value = '';
+  searchResults = [];
+  selectedSearchItems = new Set();
+  document.getElementById('search-results').innerHTML = '<div class="search-empty">输入关键词或选择分类开始检索</div>';
+  document.getElementById('search-batch-bar').classList.add('hidden');
+
+  // 复用现有面板系统，但宽度需要 300
+  if (window.electronAPI && window.electronAPI.panelStateChanged) {
+    window.electronAPI.panelStateChanged({ leftOpen: false, rightOpen: true, leftWidth: 0, rightWidth: 300 });
+  }
+  const panel = document.getElementById('search-panel');
+  const overlay = document.getElementById('panel-overlay');
+  panel.classList.remove('hidden');
+  void panel.offsetWidth;
+  panel.classList.add('open');
+  overlay.classList.remove('hidden');
+  requestAnimationFrame(() => { overlay.classList.add('active'); });
+}
+
+function closeSearchPanel() {
+  const panel = document.getElementById('search-panel');
+  const overlay = document.getElementById('panel-overlay');
+  panel.classList.remove('open');
+  overlay.classList.remove('active');
+  setTimeout(() => {
+    panel.classList.add('hidden');
+    overlay.classList.add('hidden');
+    if (window.electronAPI && window.electronAPI.panelStateChanged) {
+      window.electronAPI.panelStateChanged({ leftOpen: false, rightOpen: false, leftWidth: 0, rightWidth: 300 });
+    }
+  }, 220);
+}
+
+function performSearch() {
+  const catFilter = document.getElementById('search-category').value;
+  const textFilter = document.getElementById('search-text').value.trim().toLowerCase();
+  const statusFilter = document.getElementById('search-status').value;
+
+  if (!catFilter && !textFilter && !statusFilter) {
+    searchResults = [];
+    selectedSearchItems = new Set();
+    renderSearchResults();
+    return;
+  }
+
+  searchResults = [];
+  selectedSearchItems = new Set();
+
+  for (const key in todos) {
+    const dayTodos = todos[key];
+    if (!dayTodos || dayTodos.length === 0) continue;
+    const { year, month, day } = parseDateKey(key);
+    const dateStr = `${month}月${day}日`;
+    for (const todo of dayTodos) {
+      // 分类筛选
+      if (catFilter && todo.category !== catFilter) continue;
+      // 文字筛选
+      if (textFilter && !todo.text.toLowerCase().includes(textFilter)) continue;
+      // 完成状态筛选
+      if (statusFilter === 'completed' && !todo.completed) continue;
+      if (statusFilter === 'uncompleted' && todo.completed) continue;
+      searchResults.push({ key, todo, dateStr });
+    }
+  }
+
+  // 按日期排序（最近嘅排前面）
+  searchResults.sort((a, b) => {
+    if (a.key !== b.key) return b.key.localeCompare(a.key);
+    // 同日期：有时间嘅排前面
+    const aHas = !!(a.todo.startTime || a.todo.endTime);
+    const bHas = !!(b.todo.startTime || b.todo.endTime);
+    if (aHas !== bHas) return aHas ? -1 : 1;
+    if (aHas) return (a.todo.startTime || a.todo.endTime).localeCompare(b.todo.startTime || b.todo.endTime);
+    return b.todo.createdAt - a.todo.createdAt;
+  });
+
+  renderSearchResults();
+}
+
+function renderSearchResults() {
+  const container = document.getElementById('search-results');
+  const batchBar = document.getElementById('search-batch-bar');
+  const countEl = document.getElementById('search-batch-count');
+
+  if (searchResults.length === 0) {
+    container.innerHTML = '<div class="search-empty">无匹配结果</div>';
+    batchBar.classList.add('hidden');
+    return;
+  }
+
+  container.innerHTML = '';
+  for (const item of searchResults) {
+    const uid = `${item.key}|${item.todo.id}`;
+    const isSelected = selectedSearchItems.has(uid);
+    const cat = getCategoryById(item.todo.category || 'event');
+    const catColor = getCategoryColor(item.todo.category || 'event');
+    const timeStr = item.todo.startTime
+      ? (item.todo.startTime + (item.todo.endTime ? ' - ' + item.todo.endTime : ''))
+      : '';
+
+    const el = document.createElement('div');
+    el.className = 'search-result-item'
+      + (isSelected ? ' selected' : '')
+      + (item.todo.completed ? ' completed' : '');
+    el.dataset.uid = uid;
+
+    const cb = document.createElement('div');
+    cb.className = 'search-result-checkbox';
+    el.appendChild(cb);
+
+    const catBadge = document.createElement('span');
+    catBadge.className = 'search-result-cat';
+    catBadge.textContent = cat?.label || '事件';
+    catBadge.style.backgroundColor = hexAlpha(catColor, '33');
+    catBadge.style.color = catColor;
+    el.appendChild(catBadge);
+
+    const textEl = document.createElement('span');
+    textEl.className = 'search-result-text';
+    textEl.textContent = item.todo.text;
+    textEl.title = item.todo.text;
+    el.appendChild(textEl);
+
+    if (timeStr) {
+      const timeEl = document.createElement('span');
+      timeEl.className = 'search-result-time';
+      timeEl.textContent = timeStr;
+      el.appendChild(timeEl);
+    }
+
+    const dateEl = document.createElement('span');
+    dateEl.className = 'search-result-date';
+    dateEl.textContent = item.dateStr;
+    el.appendChild(dateEl);
+
+    container.appendChild(el);
+  }
+
+  // 更新批量操作栏
+  batchBar.classList.remove('hidden');
+  _updateBatchBarDOM();
+}
+
+// 搜索容器事件委托（单击切换选中）
+document.addEventListener('DOMContentLoaded', () => {
+  const container = document.getElementById('search-results');
+  if (container) {
+    container.addEventListener('click', (e) => {
+      const item = e.target.closest('.search-result-item');
+      if (!item || e.target.closest('button')) return;
+      toggleSearchItem(item.dataset.uid, item);
+    });
+  }
+});
+
+function toggleSearchItem(uid, el) {
+  if (selectedSearchItems.has(uid)) {
+    selectedSearchItems.delete(uid);
+    if (el) el.classList.remove('selected');
+  } else {
+    selectedSearchItems.add(uid);
+    if (el) el.classList.add('selected');
+  }
+  _updateBatchBarDOM();
+}
+
+function _updateBatchBarDOM() {
+  document.getElementById('search-batch-count').textContent =
+    `已选 ${selectedSearchItems.size} / ${searchResults.length}`;
+  document.getElementById('search-check-all').checked =
+    selectedSearchItems.size === searchResults.length && searchResults.length > 0;
+}
+
+function toggleSelectAll() {
+  const checkAll = document.getElementById('search-check-all');
+  if (checkAll.checked) {
+    for (const item of searchResults) {
+      selectedSearchItems.add(`${item.key}|${item.todo.id}`);
+    }
+  } else {
+    selectedSearchItems.clear();
+  }
+  // 原地更新 DOM class，避免全量重建
+  const items = document.querySelectorAll('#search-results .search-result-item');
+  items.forEach(el => {
+    el.classList.toggle('selected', selectedSearchItems.has(el.dataset.uid));
+  });
+  _updateBatchBarDOM();
+}
+
+function batchDeleteSelected() {
+  if (selectedSearchItems.size === 0) return;
+  if (!confirm(`确认删除 ${selectedSearchItems.size} 个待办事项？此操作不可撤销。`)) return;
+
+  for (const uid of selectedSearchItems) {
+    const [key, idStr] = uid.split('|');
+    const id = parseInt(idStr);
+    if (todos[key]) {
+      todos[key] = todos[key].filter(t => t.id !== id);
+      if (todos[key].length === 0) delete todos[key];
+    }
+  }
+
+  saveTodos();
+  renderCalendar();
+  // 刷新搜索结果（移除已删除项）
+  selectedSearchItems.clear();
+  performSearch();
+}
+
+function batchCompleteSelected() {
+  if (selectedSearchItems.size === 0) return;
+  // 判断全部已选是否都已完成 → 切换为未完成；否则全部标记为已完成
+  let allCompleted = true;
+  for (const uid of selectedSearchItems) {
+    const [key, idStr] = uid.split('|');
+    const id = parseInt(idStr);
+    const todo = todos[key]?.find(t => t.id === id);
+    if (todo && !todo.completed) { allCompleted = false; break; }
+  }
+  const newState = !allCompleted;
+  for (const uid of selectedSearchItems) {
+    const [key, idStr] = uid.split('|');
+    const id = parseInt(idStr);
+    if (todos[key]) {
+      const todo = todos[key].find(t => t.id === id);
+      if (todo) todo.completed = newState;
+    }
+  }
+  saveTodos();
+  renderCalendar();
+  selectedSearchItems.clear();
+  performSearch();
+}
+
+let pendingBatchCatId = null; // 批量修改暂存分类
+
+function openBatchEditPopup() {
+  if (selectedSearchItems.size === 0) return;
+  const popup = document.getElementById('batch-edit-popup');
+  document.getElementById('batch-edit-count').textContent = selectedSearchItems.size;
+  document.getElementById('batch-edit-text').value = '';
+  pendingBatchCatId = null;
+
+  // 渲染分类列表
+  const list = document.getElementById('batch-category-list');
+  list.innerHTML = '';
+  for (const cat of TODO_CATEGORIES) {
+    list.appendChild(buildBatchCatItem(cat));
+  }
+  if (customCategories.length > 0) {
+    for (const cat of customCategories) {
+      list.appendChild(buildBatchCatItem(cat));
+    }
+  }
+
+  popup.classList.remove('hidden');
+  document.getElementById('batch-edit-text').focus();
+}
+
+function buildBatchCatItem(cat) {
+  const color = getCategoryColor(cat.id);
+  const item = document.createElement('div');
+  item.className = 'batch-cat-item';
+  item.dataset.catId = cat.id;
+  item.style.color = color;
+
+  const iconWrap = document.createElement('div');
+  iconWrap.className = 'popup-icon-wrap';
+  iconWrap.style.background = hexAlpha(color, '14');
+  iconWrap.appendChild(createIconSVG(cat.icon, 14, color));
+  item.appendChild(iconWrap);
+
+  const label = document.createElement('span');
+  label.textContent = cat.label;
+  item.appendChild(label);
+
+  item.addEventListener('click', () => {
+    // 切换选中分类
+    const catList = document.getElementById('batch-category-list');
+    const prev = catList.querySelector('.batch-cat-item.selected');
+    if (prev) prev.classList.remove('selected');
+    if (pendingBatchCatId === cat.id) {
+      pendingBatchCatId = null;
+    } else {
+      item.classList.add('selected');
+      pendingBatchCatId = cat.id;
+    }
+  });
+  return item;
+}
+
+function applyBatchEdit() {
+  const newText = document.getElementById('batch-edit-text').value.trim();
+  const newCatId = pendingBatchCatId;
+
+  if (!newText && !newCatId) {
+    // 冇任何修改，直接关闭
+    document.getElementById('batch-edit-popup').classList.add('hidden');
+    return;
+  }
+
+  for (const uid of selectedSearchItems) {
+    const [key, idStr] = uid.split('|');
+    const id = parseInt(idStr);
+    if (todos[key]) {
+      const todo = todos[key].find(t => t.id === id);
+      if (todo) {
+        if (newText) todo.text = newText;
+        if (newCatId) todo.category = newCatId;
+      }
+    }
+  }
+
+  document.getElementById('batch-edit-popup').classList.add('hidden');
+  saveTodos();
+  renderCalendar();
+  selectedSearchItems.clear();
+  performSearch();
+}
+
+function closeBatchEditPopup() {
+  document.getElementById('batch-edit-popup').classList.add('hidden');
+  pendingBatchCatId = null;
+}
+
+function toggleSearchPanel() {
+  const panel = document.getElementById('search-panel');
+  if (panel.classList.contains('open')) {
+    closeSearchPanel();
+  } else {
+    if (document.getElementById('stats-panel').classList.contains('open')) closeStatsPanel();
+    openSearchPanel();
+  }
+}
+
+/* ================================================================
+   STATS PANEL (统计窗口)
+   ================================================================ */
+
+function openStatsPanel() {
+  // 初始化年份下拉（当前年 ±5 年）
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const yearSelect = document.getElementById('stats-year');
+  yearSelect.innerHTML = '';
+  for (let y = curYear - 5; y <= curYear + 1; y++) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y + '年';
+    if (y === curYear) opt.selected = true;
+    yearSelect.appendChild(opt);
+  }
+  document.getElementById('stats-month').value = '';
+
+  const panel = document.getElementById('stats-panel');
+  const overlay = document.getElementById('panel-overlay');
+
+  if (window.electronAPI && window.electronAPI.panelStateChanged) {
+    window.electronAPI.panelStateChanged({ leftOpen: false, rightOpen: true, leftWidth: 0, rightWidth: 300 });
+  }
+  panel.classList.remove('hidden');
+  void panel.offsetWidth;
+  panel.classList.add('open');
+  overlay.classList.remove('hidden');
+  requestAnimationFrame(() => { overlay.classList.add('active'); });
+
+  renderStats();
+}
+
+function closeStatsPanel() {
+  const panel = document.getElementById('stats-panel');
+  const overlay = document.getElementById('panel-overlay');
+  panel.classList.remove('open');
+  overlay.classList.remove('active');
+  setTimeout(() => {
+    panel.classList.add('hidden');
+    overlay.classList.add('hidden');
+    if (window.electronAPI && window.electronAPI.panelStateChanged) {
+      window.electronAPI.panelStateChanged({ leftOpen: false, rightOpen: false, leftWidth: 0, rightWidth: 300 });
+    }
+  }, 220);
+}
+
+function toggleStatsPanel() {
+  const panel = document.getElementById('stats-panel');
+  if (panel.classList.contains('open')) {
+    closeStatsPanel();
+  } else {
+    if (document.getElementById('search-panel').classList.contains('open')) closeSearchPanel();
+    openStatsPanel();
+  }
+}
+
+function renderStats() {
+  const year = parseInt(document.getElementById('stats-year').value);
+  const month = document.getElementById('stats-month').value;
+  const monthNum = month ? parseInt(month) : null;
+
+  // 统计各分类：{ catId: { total, completed, items: [{text,completed,dateStr,timeStr}] } }
+  const stats = {};
+  for (const key in todos) {
+    const { year: y, month: m, day: d } = parseDateKey(key);
+    if (y !== year) continue;
+    if (monthNum && m !== monthNum) continue;
+
+    const dayTodos = todos[key];
+    if (!dayTodos) continue;
+    for (const t of dayTodos) {
+      const catId = t.category || 'event';
+      if (!stats[catId]) stats[catId] = { total: 0, completed: 0, items: [] };
+      stats[catId].total++;
+      if (t.completed) stats[catId].completed++;
+      stats[catId].items.push({
+        text: t.text,
+        completed: t.completed,
+        timeStr: t.startTime ? (t.startTime + (t.endTime ? ' - ' + t.endTime : '')) : '',
+        day: d
+      });
+    }
+  }
+
+  const list = document.getElementById('stats-list');
+  const totalRow = document.getElementById('stats-total');
+
+  if (Object.keys(stats).length === 0) {
+    list.innerHTML = '<div class="stats-empty">该时段无待办事项</div>';
+    totalRow.classList.add('hidden');
+    return;
+  }
+
+  const sorted = Object.entries(stats).sort((a, b) => b[1].total - a[1].total);
+
+  list.innerHTML = '';
+  let grandTotal = 0, grandCompleted = 0;
+
+  for (const [catId, s] of sorted) {
+    grandTotal += s.total;
+    grandCompleted += s.completed;
+    const rate = s.total > 0 ? Math.round((s.completed / s.total) * 100) : 0;
+    const cat = getCategoryById(catId);
+    const color = getCategoryColor(catId);
+
+    // 主行容器
+    const wrapper = document.createElement('div');
+    wrapper.className = 'stats-cat-group';
+
+    const row = document.createElement('div');
+    row.className = 'stats-row';
+    if (rate >= 100) row.classList.add('all-done');
+
+    // 展开/收合箭头
+    const toggle = document.createElement('button');
+    toggle.className = 'stats-toggle';
+    toggle.innerHTML = '▶';
+    toggle.title = '展开详情';
+    row.appendChild(toggle);
+
+    // 分类名 + 图标
+    const catEl = document.createElement('div');
+    catEl.className = 'stats-row-cat';
+    catEl.style.color = color;
+    catEl.appendChild(createIconSVG(cat?.icon || 'calendar', 14, color));
+    const label = document.createElement('span');
+    label.textContent = cat?.label || '事件';
+    catEl.appendChild(label);
+    row.appendChild(catEl);
+
+    // 进度条
+    const barWrap = document.createElement('div');
+    barWrap.className = 'stats-bar-wrap';
+    const barFill = document.createElement('div');
+    barFill.className = 'stats-bar-fill';
+    barFill.style.width = rate + '%';
+    barFill.style.backgroundColor = color;
+    barWrap.appendChild(barFill);
+    row.appendChild(barWrap);
+
+    // 数量
+    const countEl = document.createElement('span');
+    countEl.className = 'stats-row-count';
+    countEl.textContent = `${s.completed}/${s.total}`;
+    row.appendChild(countEl);
+
+    // 完成率 — 颜色跟随分类色
+    const rateEl = document.createElement('span');
+    rateEl.className = 'stats-row-rate';
+    rateEl.textContent = rate + '%';
+    rateEl.style.color = color;
+    if (rate >= 100) {
+      rateEl.classList.add('rate-full');
+      // 100% 高亮背景用该分类颜色
+      row.style.setProperty('--highlight-color', color);
+      const star = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      star.setAttribute('viewBox', '0 0 24 24');
+      star.setAttribute('width', '15');
+      star.setAttribute('height', '15');
+      star.style.fill = '#f59e0b';
+      star.style.marginLeft = '2px';
+      star.style.flexShrink = '0';
+      star.innerHTML = '<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.86L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>';
+      rateEl.appendChild(star);
+    }
+    row.appendChild(rateEl);
+
+    wrapper.appendChild(row);
+
+    // 详情子列表（默认隐藏）— 按文字合并同名事项
+    const detail = document.createElement('div');
+    detail.className = 'stats-detail hidden';
+
+    // 按 text 合并：{ text: { total, completed, times: [], days: [] } }
+    const merged = {};
+    for (const item of s.items) {
+      const key = item.text;
+      if (!merged[key]) merged[key] = { total: 0, completed: 0 };
+      merged[key].total++;
+      if (item.completed) merged[key].completed++;
+    }
+
+    const mergedList = Object.entries(merged).sort((a, b) => {
+      if (a[1].completed !== b[1].completed) return a[1].completed ? 1 : -1;
+      return b[1].total - a[1].total;
+    });
+
+    for (const [text, m] of mergedList) {
+      const mRate = m.total > 0 ? Math.round((m.completed / m.total) * 100) : 0;
+      const mCompleted = m.completed === m.total;
+
+      const di = document.createElement('div');
+      di.className = 'stats-detail-item' + (mCompleted ? ' completed' : '');
+      di.style.color = color;
+
+      const dot = document.createElement('span');
+      dot.className = 'stats-detail-dot';
+      dot.style.backgroundColor = mCompleted ? '#9e9e9e' : color;
+      di.appendChild(dot);
+
+      const txt = document.createElement('span');
+      txt.className = 'stats-detail-text';
+      txt.textContent = text + (m.total > 1 ? ` (×${m.total})` : '');
+      di.appendChild(txt);
+
+      const itemRate = document.createElement('span');
+      itemRate.className = 'stats-detail-rate';
+      itemRate.textContent = mRate + '%';
+      di.appendChild(itemRate);
+
+      const cnt = document.createElement('span');
+      cnt.className = 'stats-detail-count';
+      cnt.textContent = `${m.completed}/${m.total}`;
+      di.appendChild(cnt);
+
+      detail.appendChild(di);
+    }
+    wrapper.appendChild(detail);
+
+    // 点击箭头或行切换展开
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = !detail.classList.contains('hidden');
+      detail.classList.toggle('hidden', isOpen);
+      toggle.textContent = isOpen ? '▶' : '▼';
+      toggle.title = isOpen ? '展开详情' : '收起详情';
+    });
+
+    list.appendChild(wrapper);
+  }
+
+  // 合计行
+  const totalRate = grandTotal > 0 ? Math.round((grandCompleted / grandTotal) * 100) : 0;
+  document.getElementById('stats-total-count').textContent = `${grandCompleted}/${grandTotal}`;
+  document.getElementById('stats-total-rate').textContent = totalRate + '%';
+  totalRow.classList.remove('hidden');
 }
 
 /* ================================================================
@@ -861,17 +1527,32 @@ function togglePanel(id) {
 let isMiniMode = false;
 let miniFirstHover = false;
 
+// 仅应用迷你模式 UI（CSS class + 视图切换），唔触发 IPC
+// 用于启动时恢复迷你模式状态
+function applyMiniModeUI() {
+  const app = document.getElementById('app');
+  const btn = document.getElementById('mini-mode-btn');
+  const miniView = document.getElementById('mini-view');
+  const icon = document.getElementById('mini-calendar-icon');
+
+  isMiniMode = true;
+  miniFirstHover = true;
+  app.classList.add('mini-mode');
+  btn.classList.add('active');
+  miniView.classList.remove('hidden');
+  miniView.style.display = 'flex';
+  icon.classList.remove('expanded');
+  app.classList.remove('mini-expanded');
+  updateMiniView();
+}
+
 async function toggleMiniMode() {
   if (window.electronAPI && window.electronAPI.toggleMiniMode) {
     const app = document.getElementById('app');
     const btn = document.getElementById('mini-mode-btn');
 
     // Immediately hide all panels without animation
-    ['memo-panel'].forEach(id => {
-      const p = document.getElementById(id);
-      p.classList.remove('open');
-      p.classList.add('hidden');
-    });
+    // 关闭所有面板
     const overlay = document.getElementById('panel-overlay');
     overlay.classList.remove('active');
     overlay.classList.add('hidden');
@@ -895,17 +1576,7 @@ async function toggleMiniMode() {
     const inMini = await window.electronAPI.toggleMiniMode();
 
     if (inMini) {
-      app.classList.add('mini-mode');
-      btn.classList.add('active');
-      miniFirstHover = true;
-      // Ensure mini view is visible and preview state is reset
-      const miniView = document.getElementById('mini-view');
-      miniView.classList.remove('hidden');
-      miniView.style.display = 'flex';
-      const icon = document.getElementById('mini-calendar-icon');
-      icon.classList.remove('expanded');
-      app.classList.remove('mini-expanded');
-      updateMiniView();
+      applyMiniModeUI();
     } else {
       app.classList.remove('mini-mode');
       btn.classList.remove('active');
@@ -939,11 +1610,10 @@ async function toggleMiniMode() {
 
 function updateMiniView() {
   const today = getToday();
-  const weekdays = ['日','一','二','三','四','五','六'];
   const d = new Date(today.year, today.month - 1, today.day);
   document.getElementById('mini-month').textContent = MONTH_NAMES_EN[today.month - 1].slice(0, 3);
   document.getElementById('mini-day').textContent = today.day;
-  document.getElementById('mini-weekday').textContent = '周' + weekdays[d.getDay()];
+  document.getElementById('mini-weekday').textContent = '周' + WEEKDAY_NAMES_CN[d.getDay()];
   document.getElementById('mini-weekday-en').textContent = WEEKDAY_NAMES_EN[d.getDay()];
 }
 
@@ -966,10 +1636,7 @@ function expandMiniPreview() {
   if (dayTodos.length === 0) {
     listEl.innerHTML = '<div class="mini-preview-empty">今日暂无待办<br>点击此处添加</div>';
   } else {
-    const sorted = [...dayTodos].sort((a, b) => {
-      if (a.completed !== b.completed) return a.completed ? 1 : -1;
-      return b.createdAt - a.createdAt;
-    });
+    const sorted = sortTodosByTime(dayTodos);
     for (const t of sorted) {
       const item = document.createElement('div');
       item.className = 'mini-preview-item' + (t.completed ? ' completed' : '');
@@ -1020,12 +1687,131 @@ function collapseMiniPreview() {
 /* --- Detail View --- */
 
 let detailKey = null;
+let pendingStartTime = null; // 'HH:mm' or null
+let pendingEndTime = null;   // 'HH:mm' or null
+let pendingRepeat = null;    // { weekdays: number[], weeks: number } or null
+
+function resetPendingState() {
+  pendingStartTime = null;
+  pendingEndTime = null;
+  pendingRepeat = null;
+  updateTimePickUI();
+  updateRepeatBtnUI();
+}
+
+function updateTimePickUI() {
+  const pick = document.getElementById('detail-time-pick');
+  if (!pick) return;
+  if (pendingStartTime || pendingEndTime) {
+    pick.classList.add('has-time');
+    pick.title = pendingStartTime && pendingEndTime
+      ? `${pendingStartTime} - ${pendingEndTime}`
+      : pendingStartTime ? `开始 ${pendingStartTime}` : `结束 ${pendingEndTime}`;
+  } else {
+    pick.classList.remove('has-time');
+    pick.title = '设置时间（可选）';
+  }
+}
+
+function updateRepeatBtnUI() {
+  const btn = document.getElementById('btn-detail-repeat');
+  if (!btn) return;
+  if (pendingRepeat && pendingRepeat.weekdays.length > 0) {
+    btn.classList.add('has-repeat');
+    const days = pendingRepeat.weekdays.map(d => WEEKDAY_NAMES_CN[d]).join('、');
+    btn.title = `重复：每${days}，共${pendingRepeat.weeks}周`;
+  } else {
+    btn.classList.remove('has-repeat');
+    btn.title = '重复事项';
+  }
+}
+
+/* --- Time Picker --- */
+
+function openTimePicker() {
+  const popup = document.getElementById('time-picker-popup');
+  if (!popup) return;
+  document.getElementById('time-start').value = pendingStartTime || '';
+  document.getElementById('time-end').value = pendingEndTime || '';
+  document.getElementById('time-error').classList.add('hidden');
+  popup.classList.remove('hidden');
+}
+
+function closeTimePicker() {
+  document.getElementById('time-picker-popup').classList.add('hidden');
+}
+
+function confirmTimePicker() {
+  const start = document.getElementById('time-start').value || null;
+  const end = document.getElementById('time-end').value || null;
+  if (start && end && start > end) {
+    document.getElementById('time-error').classList.remove('hidden');
+    return;
+  }
+  document.getElementById('time-error').classList.add('hidden');
+  pendingStartTime = start;
+  pendingEndTime = end;
+  updateTimePickUI();
+  closeTimePicker();
+}
+
+function clearTimePicker() {
+  document.getElementById('time-start').value = '';
+  document.getElementById('time-end').value = '';
+  document.getElementById('time-error').classList.add('hidden');
+  pendingStartTime = null;
+  pendingEndTime = null;
+  updateTimePickUI();
+  closeTimePicker();
+}
+
+/* --- Repeat Popup --- */
+
+function openRepeatPopup() {
+  const popup = document.getElementById('repeat-popup');
+  if (!popup) return;
+  // 恢复已保存的重复设定
+  if (pendingRepeat) {
+    document.getElementById('repeat-weeks').value = pendingRepeat.weeks;
+    const checks = document.querySelectorAll('#repeat-weekdays input[type=checkbox]');
+    checks.forEach(cb => {
+      cb.checked = pendingRepeat.weekdays.includes(parseInt(cb.value));
+    });
+  } else {
+    document.getElementById('repeat-weeks').value = 4;
+    const checks = document.querySelectorAll('#repeat-weekdays input[type=checkbox]');
+    checks.forEach(cb => { cb.checked = false; });
+  }
+  popup.classList.remove('hidden');
+}
+
+function closeRepeatPopup() {
+  document.getElementById('repeat-popup').classList.add('hidden');
+}
+
+function confirmRepeat() {
+  const checks = document.querySelectorAll('#repeat-weekdays input[type=checkbox]:checked');
+  const weekdays = Array.from(checks).map(cb => parseInt(cb.value));
+  const weeks = parseInt(document.getElementById('repeat-weeks').value) || 1;
+
+  if (weekdays.length === 0) {
+    pendingRepeat = null;
+  } else {
+    pendingRepeat = {
+      weekdays: weekdays.sort((a, b) => a - b),
+      weeks: Math.max(1, Math.min(52, weeks))
+    };
+  }
+  updateRepeatBtnUI();
+  closeRepeatPopup();
+}
 
 function openDetailView(y, m, d) {
   hideDateTooltip();
   selectedDate = { year: y, month: m, day: d };
   detailKey = dateKey(y, m, d);
   selectedCategory = 'event';
+  resetPendingState();
   closeAllPanels();
   renderCalendar();
   renderCategorySelector();
@@ -1354,10 +2140,7 @@ function renderDetailTodos() {
     return;
   }
 
-  const sorted = [...dayTodos].sort((a, b) => {
-    if (a.completed !== b.completed) return a.completed ? 1 : -1;
-    return b.createdAt - a.createdAt;
-  });
+  const sorted = sortTodosByTime(dayTodos);
 
   list.innerHTML = '';
   for (const todo of sorted) {
@@ -1409,6 +2192,29 @@ function renderDetailTodos() {
 
     item.appendChild(checkbox);
     item.appendChild(text);
+
+    // 时间标记
+    if (todo.startTime || todo.endTime) {
+      const timeBadge = document.createElement('span');
+      timeBadge.classList.add('todo-time-badge');
+      const s = todo.startTime || '--:--';
+      const e = todo.endTime || '--:--';
+      timeBadge.textContent = `${s} - ${e}`;
+      item.appendChild(timeBadge);
+    }
+
+    // 重复标记（显示在待办列表中，唔会喺详情重新渲染时重新读取 pending 数据）
+    // repeat 数据已嵌入 todo 对象，所以呢度唔需要额外处理
+    // 但如果想标示「呢个系重复事项」，可以检查 todo 是否有 repeat 属性
+    if (todo.repeat) {
+      const repeatBadge = document.createElement('span');
+      repeatBadge.classList.add('todo-repeat-badge');
+      const days = todo.repeat.weekdays.map(d => WEEKDAY_NAMES_CN[d]).join('');
+      repeatBadge.textContent = `↻${days}×${todo.repeat.weeks}`;
+      repeatBadge.title = `每${days}重复，共${todo.repeat.weeks}周`;
+      item.appendChild(repeatBadge);
+    }
+
     item.appendChild(delBtn);
     list.appendChild(item);
   }
@@ -1655,6 +2461,31 @@ function init() {
     else if (e.key === 'Escape') document.getElementById('btn-detail-cancel-edit').click();
   });
 
+  // 时间选择器
+  document.getElementById('detail-time-pick').addEventListener('click', openTimePicker);
+  document.getElementById('time-picker-backdrop').addEventListener('click', closeTimePicker);
+  document.getElementById('btn-time-confirm').addEventListener('click', confirmTimePicker);
+  document.getElementById('btn-time-clear').addEventListener('click', clearTimePicker);
+  // 实时校验时间（两个输入共用同一个校验函数）
+  function validateTimeRange() {
+    const start = document.getElementById('time-start').value;
+    const end = document.getElementById('time-end').value;
+    const errEl = document.getElementById('time-error');
+    if (start && end && start > end) {
+      errEl.classList.remove('hidden');
+    } else {
+      errEl.classList.add('hidden');
+    }
+  }
+  document.getElementById('time-start').addEventListener('change', validateTimeRange);
+  document.getElementById('time-end').addEventListener('change', validateTimeRange);
+
+  // 重复设置
+  document.getElementById('btn-detail-repeat').addEventListener('click', openRepeatPopup);
+  document.getElementById('repeat-popup-backdrop').addEventListener('click', closeRepeatPopup);
+  document.getElementById('btn-repeat-confirm').addEventListener('click', confirmRepeat);
+  document.getElementById('btn-repeat-cancel').addEventListener('click', closeRepeatPopup);
+
   const catPopup = document.getElementById('category-popup');
   if (catPopup) {
     catPopup.querySelector('.category-popup-backdrop')?.addEventListener('click', closeCategoryPopup);
@@ -1675,42 +2506,42 @@ function init() {
     });
   }
 
-  document.getElementById('btn-memo').addEventListener('click', () => {
-    togglePanel('memo-panel');
+  // 统计面板
+  document.getElementById('btn-stats').addEventListener('click', () => {
+    if (document.getElementById('search-panel').classList.contains('open')) closeSearchPanel();
+    toggleStatsPanel();
   });
-  document.getElementById('btn-memo-close').addEventListener('click', () => {
-    closePanel('memo-panel');
+  document.getElementById('btn-stats-close').addEventListener('click', closeStatsPanel);
+  document.getElementById('stats-year').addEventListener('change', renderStats);
+  document.getElementById('stats-month').addEventListener('change', renderStats);
+
+  // 搜索面板
+  document.getElementById('btn-search').addEventListener('click', () => {
+    if (document.getElementById('stats-panel').classList.contains('open')) closeStatsPanel();
+    toggleSearchPanel();
+  });
+  document.getElementById('btn-search-close').addEventListener('click', closeSearchPanel);
+  document.getElementById('search-category').addEventListener('change', performSearch);
+  document.getElementById('search-status').addEventListener('change', performSearch);
+  let searchDebounceTimer = null;
+  document.getElementById('search-text').addEventListener('input', () => {
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(performSearch, 300);
+  });
+  document.getElementById('search-check-all').addEventListener('change', toggleSelectAll);
+  document.getElementById('btn-batch-delete').addEventListener('click', batchDeleteSelected);
+  document.getElementById('btn-batch-edit').addEventListener('click', openBatchEditPopup);
+  document.getElementById('btn-batch-complete').addEventListener('click', batchCompleteSelected);
+  document.getElementById('batch-edit-backdrop').addEventListener('click', closeBatchEditPopup);
+  document.getElementById('btn-batch-edit-cancel').addEventListener('click', closeBatchEditPopup);
+  document.getElementById('btn-batch-edit-apply').addEventListener('click', applyBatchEdit);
+  document.getElementById('batch-edit-text').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') applyBatchEdit();
+    else if (e.key === 'Escape') closeBatchEditPopup();
   });
 
   document.getElementById('panel-overlay').addEventListener('click', () => {
     closeAllPanels();
-  });
-
-  document.getElementById('memo-font-slider').addEventListener('input', (e) => {
-    const val = parseInt(e.target.value);
-    document.getElementById('memo-font-value').textContent = val + 'px';
-    document.getElementById('memo-textarea').style.fontSize = val + 'px';
-    if (window.electronAPI) {
-      window.electronAPI.saveSettings({ memoFontSize: val });
-    }
-  });
-
-  let memoTimeout;
-  document.getElementById('memo-textarea').addEventListener('input', (e) => {
-    clearTimeout(memoTimeout);
-    memoTimeout = setTimeout(() => {
-      if (window.electronAPI) {
-        window.electronAPI.saveSettings({ memoText: e.target.value });
-      }
-    }, 500);
-  });
-
-  document.getElementById('memo-text-color').addEventListener('input', (e) => {
-    const color = e.target.value;
-    document.getElementById('memo-textarea').style.color = color;
-    if (window.electronAPI) {
-      window.electronAPI.saveSettings({ memoTextColor: color });
-    }
   });
 
   // Listen for settings changes from the standalone settings window
@@ -1765,10 +2596,7 @@ function init() {
         }
         document.getElementById('detail-view').classList.add('hidden');
         document.getElementById('panel-overlay').classList.add('hidden');
-        ['memo-panel'].forEach(id => {
-          document.getElementById(id).classList.add('hidden');
-          document.getElementById(id).classList.remove('open');
-        });
+        closeAllPanels();
         // Restore calendar view in case detail view had taken over
         document.getElementById('calendar-header').style.display = '';
         document.getElementById('weekday-header').style.display = '';

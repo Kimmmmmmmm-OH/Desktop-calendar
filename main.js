@@ -5,6 +5,15 @@ const fs = require('fs');
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 const TODOS_PATH = path.join(app.getPath('userData'), 'todos.json');
 const MIN_WINDOW_SIZE = 800;
+const MINI_SIZE = 80;
+
+// 检查矩形是否在任一屏幕工作区内可见
+function isRectVisibleOnAnyDisplay(px, py, pw, ph, displays) {
+  return displays.some(d => {
+    const { x, y, width, height } = d.workArea;
+    return px < x + width && px + pw > x && py < y + height && py + ph > y;
+  });
+}
 
 let mainWindow = null;
 let settingsWindow = null;
@@ -14,6 +23,7 @@ let isPinned = false;
 let baseWindowBounds = null; // bounds when no slide panels are open
 let suppressBoundsSave = false; // prevent saving expanded bounds
 let tooltipWindow = null;
+let currentSettings = null; // 模块级最新 settings，所有 handler 共享，避免闭包过期
 
 function loadSettings() {
   try {
@@ -42,10 +52,9 @@ function loadSettings() {
     todoDotColor: '#111111',
     todoDotSize: 8,
     miniBounds: null,
-    memoText: '',
-    memoFontSize: 14,
-    memoTextColor: '#111111',
     isPinned: false,
+    isMiniMode: false,
+    preMiniBounds: null,
     categoryColors: {
       event: '#6b9ed6',
       life: '#f0c040',
@@ -53,8 +62,9 @@ function loadSettings() {
       birthday: '#e06070',
       festival: '#d4954a',
       entertainment: '#9b7ec4',
-      study: '#7db87d',
-      work: '#5a8bb5'
+      study: '#0891b2',
+      work: '#5a8bb5',
+      sport: '#4caf50'
     },
     customCategories: []
   };
@@ -64,6 +74,32 @@ function saveSettings(settings) {
   try {
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
   } catch (e) { /* ignore */ }
+}
+
+// 统一保存窗口状态（迷你/正常模式嘅位置同尺寸），确保下次启动正确恢复
+function saveWindowState() {
+  if (!currentSettings || !mainWindow) return;
+  const [x, y] = mainWindow.getPosition();
+  const [w, h] = mainWindow.getSize();
+
+  if (preMiniBounds) {
+    // 当前係迷你模式：保存迷你状态、迷你位置、正常窗口边界
+    currentSettings.isMiniMode = true;
+    currentSettings.preMiniBounds = { ...preMiniBounds };
+    currentSettings.miniBounds = { x, y };
+    currentSettings.x = x;
+    currentSettings.y = y;
+    currentSettings.width = w;
+    currentSettings.height = h;
+  } else {
+    // 当前係正常模式
+    currentSettings.isMiniMode = false;
+    currentSettings.x = x;
+    currentSettings.y = y;
+    currentSettings.width = w;
+    currentSettings.height = h;
+  }
+  saveSettings(currentSettings);
 }
 
 const LOG_PATH = path.join(app.getPath('userData'), 'debug.log');
@@ -105,30 +141,72 @@ shortcut.Save()
 
 function createWindow() {
   const settings = loadSettings();
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width: screenW, height: screenH } = primaryDisplay.workAreaSize;
+  // C01 要求：每次启动都不固定到桌面，忽略已保存的钉住状态
+  settings.isPinned = false;
+  currentSettings = settings; // 模块级引用，所有 handler 共享最新状态
 
-  const winW = Math.max(settings.width || MIN_WINDOW_SIZE, MIN_WINDOW_SIZE);
-  const winH = Math.max(settings.height || MIN_WINDOW_SIZE, MIN_WINDOW_SIZE);
-  const winX = settings.x !== undefined
-    ? Math.max(0, Math.min(settings.x, screenW - winW))
-    : Math.max(0, screenW - winW - 40);
-  const winY = settings.y !== undefined
-    ? Math.max(0, Math.min(settings.y, screenH - winH))
-    : Math.round((screenH - winH) / 2);
+  const displays = screen.getAllDisplays();
+
+  // 计算所有屏幕最左边界，用于默认位置回退
+  let totalMinX = Infinity;
+  for (const d of displays) {
+    if (d.workArea.x < totalMinX) totalMinX = d.workArea.x;
+  }
+
+  // 判断是否要以迷你模式启动
+  const startInMini = settings.isMiniMode && settings.preMiniBounds;
+
+  let winW, winH, winX, winY;
+  if (startInMini) {
+    winW = MINI_SIZE;
+    winH = MINI_SIZE;
+    const savedX = settings.miniBounds?.x ?? settings.x;
+    const savedY = settings.miniBounds?.y ?? settings.y;
+    if (savedX !== undefined && savedY !== undefined
+        && isRectVisibleOnAnyDisplay(savedX, savedY, MINI_SIZE, MINI_SIZE, displays)) {
+      winX = savedX;
+      winY = savedY;
+    }
+    if (winX === undefined) {
+      const pd = screen.getPrimaryDisplay();
+      winX = pd.workArea.x + Math.round((pd.workArea.width - MINI_SIZE) / 2);
+      winY = pd.workArea.y + Math.round((pd.workArea.height - MINI_SIZE) / 2);
+    }
+    preMiniBounds = settings.preMiniBounds;
+  } else {
+    winW = Math.max(settings.width || MIN_WINDOW_SIZE, MIN_WINDOW_SIZE);
+    winH = Math.max(settings.height || MIN_WINDOW_SIZE, MIN_WINDOW_SIZE);
+    if (settings.x !== undefined && settings.y !== undefined
+        && isRectVisibleOnAnyDisplay(settings.x, settings.y, winW, winH, displays)) {
+      winX = settings.x;
+      winY = settings.y;
+    }
+    if (winX === undefined) {
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { width: screenW, height: screenH } = primaryDisplay.workArea;
+      winX = Math.max(totalMinX, screenW - winW - 40);
+      winY = Math.round((screenH - winH) / 2);
+    }
+  }
+
+  // 构建窗口选项
+  const winOpts = {
+    width: winW, height: winH, x: winX, y: winY,
+    frame: false, transparent: true,
+    alwaysOnTop: settings.alwaysOnTop,
+    minWidth: MIN_WINDOW_SIZE, minHeight: MIN_WINDOW_SIZE,
+    skipTaskbar: true, resizable: true,
+  };
+  if (startInMini) {
+    Object.assign(winOpts, {
+      alwaysOnTop: false,
+      minWidth: MINI_SIZE, minHeight: MINI_SIZE,
+      resizable: false
+    });
+  }
 
   mainWindow = new BrowserWindow({
-    width: winW,
-    height: winH,
-    x: winX,
-    y: winY,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: settings.alwaysOnTop,
-    minWidth: MIN_WINDOW_SIZE,
-    minHeight: MIN_WINDOW_SIZE,
-    skipTaskbar: true,
-    resizable: true,
+    ...winOpts,
     icon: path.join(__dirname, 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -141,10 +219,23 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
   mainWindow.setTitle('桌面日历清单');
 
+  // 窗口首次显示时保存初始设置，迷你模式启动时记住原始置顶状态
+  mainWindow.once('ready-to-show', () => {
+    if (startInMini) {
+      preMiniAlwaysOnTop = settings.alwaysOnTop;
+    }
+    saveSettings(currentSettings);
+  });
+
   mainWindow.on('close', (e) => {
     if (!isQuitting) {
       e.preventDefault();
+      // 隐藏前保存完整窗口状态（含迷你模式）
+      saveWindowState();
       mainWindow.hide();
+    } else {
+      // 退出前保存最终状态
+      saveWindowState();
     }
   });
 
@@ -159,11 +250,11 @@ function createWindow() {
     if (suppressBoundsSave) return;
     const [w, h] = mainWindow.getSize();
     const [x, y] = mainWindow.getPosition();
-    settings.width = w;
-    settings.height = h;
-    settings.x = x;
-    settings.y = y;
-    saveSettings(settings);
+    currentSettings.width = w;
+    currentSettings.height = h;
+    currentSettings.x = x;
+    currentSettings.y = y;
+    saveSettings(currentSettings);
     if (baseWindowBounds) {
       baseWindowBounds.width = w;
       baseWindowBounds.height = h;
@@ -184,9 +275,9 @@ function createWindow() {
         debugLog('[MOVE] lastMiniPosition updated:', lastMiniPosition);
       }
     } else {
-      settings.x = x;
-      settings.y = y;
-      saveSettings(settings);
+      currentSettings.x = x;
+      currentSettings.y = y;
+      saveSettings(currentSettings);
     }
     if (baseWindowBounds) {
       baseWindowBounds.x = x;
@@ -380,6 +471,8 @@ ipcMain.handle('save-settings', (_, newSettings) => {
   const current = loadSettings();
   const merged = { ...current, ...newSettings };
   saveSettings(merged);
+  // 同步更新模块级 currentSettings 为最新合并结果
+  currentSettings = merged;
   if (mainWindow) {
     if (newSettings.bgOpacity !== undefined) {
       mainWindow.setOpacity(newSettings.bgOpacity);
@@ -652,10 +745,12 @@ ipcMain.handle('toggle-mini-mode', () => {
       [saveX, saveY] = mainWindow.getPosition();
     }
     lastMiniPosition = { x: saveX, y: saveY };
-    const s = loadSettings();
-    s.miniBounds = { x: saveX, y: saveY };
-    debugLog('[EXIT-MINI] Saving miniBounds:', s.miniBounds, 'preMiniBounds:', preMiniBounds, 'hadExpandedBounds:', !!miniExpandedBounds);
-    saveSettings(s);
+    // 更新模块级 currentSettings：退出迷你模式，保存迷你位置
+    currentSettings.isMiniMode = false;
+    currentSettings.preMiniBounds = null;
+    currentSettings.miniBounds = { x: saveX, y: saveY };
+    saveSettings(currentSettings);
+    debugLog('[EXIT-MINI] Saving miniBounds:', currentSettings.miniBounds, 'preMiniBounds:', preMiniBounds, 'hadExpandedBounds:', !!miniExpandedBounds);
 
     suppressBoundsSave = true;
     try {
@@ -681,48 +776,50 @@ ipcMain.handle('toggle-mini-mode', () => {
   } else {
     // Enter mini mode — save current bounds, shrink to mini size
     preMiniBounds = mainWindow.getBounds();
-    const miniSize = 80;
-    const s = loadSettings();
+    // 更新模块级 currentSettings，标记进入迷你模式并保存正常窗口边界
+    currentSettings.isMiniMode = true;
+    currentSettings.preMiniBounds = {
+      x: preMiniBounds.x, y: preMiniBounds.y,
+      width: preMiniBounds.width, height: preMiniBounds.height
+    };
+    saveSettings(currentSettings);
+
     let newX, newY;
     // Prefer in-memory position (same session), then disk settings, then center
     if (lastMiniPosition) {
       newX = lastMiniPosition.x;
       newY = lastMiniPosition.y;
       debugLog('[ENTER-MINI] Using in-memory lastMiniPosition:', lastMiniPosition);
-    } else if (s.miniBounds) {
-      newX = s.miniBounds.x;
-      newY = s.miniBounds.y;
-      debugLog('[ENTER-MINI] Loaded miniBounds from disk:', s.miniBounds);
+    } else if (currentSettings.miniBounds) {
+      newX = currentSettings.miniBounds.x;
+      newY = currentSettings.miniBounds.y;
+      debugLog('[ENTER-MINI] Using miniBounds from currentSettings:', currentSettings.miniBounds);
     } else {
-      newX = preMiniBounds.x + Math.round((preMiniBounds.width - miniSize) / 2);
-      newY = preMiniBounds.y + Math.round((preMiniBounds.height - miniSize) / 2);
+      newX = preMiniBounds.x + Math.round((preMiniBounds.width - MINI_SIZE) / 2);
+      newY = preMiniBounds.y + Math.round((preMiniBounds.height - MINI_SIZE) / 2);
       debugLog('[ENTER-MINI] No miniBounds, centering at:', { newX, newY });
     }
-    // Ensure position is on a visible screen area
+    // 验证位置在任一屏幕可见
     const displays = screen.getAllDisplays();
-    const visible = displays.some(d => {
-      const { x, y, width, height } = d.workArea;
-      return newX < x + width && newX + miniSize > x && newY < y + height && newY + miniSize > y;
-    });
-    if (!visible) {
+    if (!isRectVisibleOnAnyDisplay(newX, newY, MINI_SIZE, MINI_SIZE, displays)) {
       const pd = screen.getPrimaryDisplay();
-      newX = pd.workArea.x + Math.round((pd.workArea.width - miniSize) / 2);
-      newY = pd.workArea.y + Math.round((pd.workArea.height - miniSize) / 2);
+      newX = pd.workArea.x + Math.round((pd.workArea.width - MINI_SIZE) / 2);
+      newY = pd.workArea.y + Math.round((pd.workArea.height - MINI_SIZE) / 2);
       debugLog('[ENTER-MINI] Position not visible, fallback to center:', { newX, newY });
     }
     suppressBoundsSave = true;
     try {
       preMiniAlwaysOnTop = mainWindow.isAlwaysOnTop();
       mainWindow.setAlwaysOnTop(false);
-      mainWindow.setMinimumSize(miniSize, miniSize);
+      mainWindow.setMinimumSize(MINI_SIZE, MINI_SIZE);
       mainWindow.setResizable(false);
       mainWindow.setMovable(true);
-      mainWindow.setBounds({ width: miniSize, height: miniSize });
+      mainWindow.setBounds({ width: MINI_SIZE, height: MINI_SIZE });
       mainWindow.setPosition(newX, newY);
     } finally {
       suppressBoundsSave = false;
     }
-    debugLog('[ENTER-MINI] Window set to:', { x: newX, y: newY, width: miniSize, height: miniSize });
+    debugLog('[ENTER-MINI] Window set to:', { x: newX, y: newY, width: MINI_SIZE, height: MINI_SIZE });
     return true;
   }
 });
@@ -807,16 +904,8 @@ ipcMain.handle('quit-app', () => {
 
 app.whenReady().then(() => {
   const settings = createWindow();
-  if (settings.isPinned) {
-    isPinned = true;
-    suppressBoundsSave = true;
-    try {
-      mainWindow.setResizable(false);
-      mainWindow.setMovable(false);
-    } finally {
-      suppressBoundsSave = false;
-    }
-  }
+  // C01 要求：默认及开机时不固定到桌面，始终以可移动/可调大小状态启动
+  // 忽略已保存的 isPinned 状态
 
   createTray();
 
