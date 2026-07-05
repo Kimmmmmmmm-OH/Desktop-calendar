@@ -289,24 +289,9 @@ function createWindow() {
 }
 
 function createTray() {
-  const iconSize = 16;
-  const canvas = Buffer.alloc(iconSize * iconSize * 4);
-  // Draw a simple calendar icon in buffer
-  for (let y = 0; y < iconSize; y++) {
-    for (let x = 0; x < iconSize; x++) {
-      const i = (y * iconSize + x) * 4;
-      // Gold color #c9a96e
-      if (x >= 2 && x <= 13 && y >= 2 && y <= 13) {
-        canvas[i] = 201;     // R
-        canvas[i + 1] = 169; // G
-        canvas[i + 2] = 110; // B
-        canvas[i + 3] = 255; // A
-      } else {
-        canvas[i + 3] = 0;   // transparent
-      }
-    }
-  }
-  const icon = nativeImage.createFromBuffer(canvas, { width: iconSize, height: iconSize });
+  // 使用生成的日历图标（16x16 像素完美绘制）
+  const iconPath = path.join(__dirname, 'assets', 'icon-16.png');
+  const icon = nativeImage.createFromPath(iconPath);
 
   tray = new Tray(icon);
   tray.setToolTip('桌面日历清单');

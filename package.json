@@ -1,6 +1,6 @@
 {
   "name": "desktop-calendar",
-  "version": "1.0.0",
+  "version": "4.1.0",
   "description": "桌面日历清单 - Desktop Calendar & Todo List",
   "main": "main.js",
   "scripts": {

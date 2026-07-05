@@ -187,6 +187,20 @@ body {
 }
 #title-bar-hover-zone.active { display: block; }
 
+/* 隐藏标题栏时，浮动按钮同步隐藏，hover zone 触发同步显示 */
+.float-btn.auto-hide {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform var(--duration-normal) var(--ease-out),
+              opacity var(--duration-normal) var(--ease-out);
+}
+.float-btn.auto-hide.show {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
 .title-text {
   display: none;
 }

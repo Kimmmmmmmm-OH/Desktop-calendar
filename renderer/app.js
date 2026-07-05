@@ -301,8 +301,14 @@ let customCategories = [];
 
 function applyTitlebarHide(hidden) {
   const bar = document.getElementById('title-bar');
+  const miniBtn = document.getElementById('mini-mode-btn');
+  const settingsBtn = document.getElementById('settings-float-btn');
+
   if (hidden) {
     bar.classList.add('auto-hide');
+    if (miniBtn) miniBtn.classList.add('auto-hide');
+    if (settingsBtn) settingsBtn.classList.add('auto-hide');
+
     let zone = document.getElementById('title-bar-hover-zone');
     if (!zone) {
       zone = document.createElement('div');
@@ -316,16 +322,22 @@ function applyTitlebarHide(hidden) {
       zone.addEventListener('mouseenter', () => {
         if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
         bar.classList.add('show');
+        if (miniBtn) miniBtn.classList.add('show');
+        if (settingsBtn) settingsBtn.classList.add('show');
       });
       zone.addEventListener('mouseleave', () => {
         hideTimer = setTimeout(() => {
           bar.classList.remove('show');
+          if (miniBtn) miniBtn.classList.remove('show');
+          if (settingsBtn) settingsBtn.classList.remove('show');
           hideTimer = null;
         }, 3000);
       });
     }
   } else {
     bar.classList.remove('auto-hide', 'show');
+    if (miniBtn) { miniBtn.classList.remove('auto-hide', 'show'); }
+    if (settingsBtn) { settingsBtn.classList.remove('auto-hide', 'show'); }
     const zone = document.getElementById('title-bar-hover-zone');
     if (zone) zone.classList.remove('active');
   }
@@ -488,22 +500,34 @@ function renderCalendar() {
       if (dayTodos && dayTodos.length > 0) {
         const dotsWrap = document.createElement('div');
         dotsWrap.classList.add('todo-dots');
-        const total = dayTodos.length;
-        const visible = dayTodos.slice(0, 10); // 保持原始顺序，最多10个
+        // 按分类去重：每个分类只显示一个 logo
+        // 只有当该分类所有待办都完成时，logo 才变灰
+        const catMap = new Map(); // catId -> { cat, allCompleted }
+        for (const t of dayTodos) {
+          const catId = t.category || 'event';
+          if (!catMap.has(catId)) {
+            catMap.set(catId, { cat: getCategoryById(catId), allCompleted: true });
+          }
+          if (!t.completed) {
+            catMap.get(catId).allCompleted = false;
+          }
+        }
+
+        const uniqueCats = [...catMap.values()];
+        const visible = uniqueCats.slice(0, 10);
+        const totalCats = uniqueCats.length;
 
         for (let i = 0; i < visible.length; i++) {
-          const t = visible[i];
-          const catId = t.category || 'event';
-          const cat = getCategoryById(catId);
-          const isCompleted = t.completed;
-          const color = isCompleted ? '#a0a0a0' : getCategoryColor(catId);
+          const { cat, allCompleted } = visible[i];
+          const catId = cat?.id || 'event';
+          const color = allCompleted ? '#a0a0a0' : getCategoryColor(catId);
           const dot = document.createElement('span');
           dot.classList.add('todo-dot');
-          if (isCompleted) dot.classList.add('completed');
+          if (allCompleted) dot.classList.add('completed');
           const svg = createIconSVG(cat?.icon || 'calendar',
             'calc(var(--todo-dot-size) + 2px)', color);
           dot.appendChild(svg);
-          if (total > 10 && i === visible.length - 1) {
+          if (totalCats > 10 && i === visible.length - 1) {
             dot.style.position = 'relative';
             const plus = document.createElement('span');
             plus.className = 'todo-dot-more';
@@ -1295,7 +1319,7 @@ function openStatsPanel() {
     if (y === curYear) opt.selected = true;
     yearSelect.appendChild(opt);
   }
-  document.getElementById('stats-month').value = '';
+  document.getElementById('stats-month').value = now.getMonth() + 1;
 
   const panel = document.getElementById('stats-panel');
   const overlay = document.getElementById('panel-overlay');
